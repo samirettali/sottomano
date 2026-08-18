@@ -36,14 +36,7 @@ struct PickerView: View {
             }
         }
         .frame(width: 560, alignment: .leading)
-        .padding(Style.padding)
-        .background(Style.fill)
-        .overlay(
-            RoundedRectangle(cornerRadius: Style.radius)
-                .strokeBorder(Style.border, lineWidth: Style.borderWidth)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Style.radius))
-        .fixedSize()
+        .chrome()
     }
 
     private func row(_ choice: Choice, isSelected: Bool) -> some View {
@@ -65,7 +58,7 @@ struct PickerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Style.text.opacity(isSelected ? 0.14 : 0))
+                .fill(isSelected ? Style.selectionColor : .clear)
         )
     }
 }

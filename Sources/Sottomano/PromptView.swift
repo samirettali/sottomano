@@ -18,13 +18,6 @@ struct PromptView: View {
                 .foregroundStyle(Style.text)
         }
         .frame(width: 520, alignment: .leading)
-        .padding(Style.padding)
-        .background(Style.fill)
-        .overlay(
-            RoundedRectangle(cornerRadius: Style.radius)
-                .strokeBorder(Style.border, lineWidth: Style.borderWidth)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Style.radius))
-        .fixedSize()
+        .chrome()
     }
 }

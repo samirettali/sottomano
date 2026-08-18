@@ -14,14 +14,7 @@ enum Toast {
             rootView: Text(preview(message))
                 .font(Style.font(size: Style.size - 2))
                 .foregroundStyle(Style.text)
-                .padding(Style.padding)
-                .background(Style.fill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Style.radius)
-                        .strokeBorder(Style.border, lineWidth: Style.borderWidth)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Style.radius))
-                .fixedSize()
+                .chrome()
         )
 
         view.layout()
@@ -35,11 +28,11 @@ enum Toast {
 
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.hasShadow = false
         window.level = .mainMenu
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
         window.contentView = view
         window.setContentSize(view.fittingSize)
+        window.invalidateShadow()
 
         if let screen = NSScreen.main {
             let frame = screen.frame

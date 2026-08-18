@@ -12,6 +12,8 @@ final class Launcher {
 
     /// The layer on screen is the last one; everything before it is the way back.
     private var stack: [[Entry]] = []
+    /// The name of each layer entered, so a panel can say where it is.
+    private var titles: [String] = []
     /// Set while the panel is asking for text rather than showing a layer.
     private var prompt: Prompt?
     /// Set while the panel is a list to choose from.
@@ -69,9 +71,14 @@ final class Launcher {
 
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.level = .mainMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+    }
+
+    /// Redraws what is on screen, for the theme switcher.
+    func refresh() {
+        if panel.isVisible { show() }
     }
 
     /// Runs one entry without opening the panel, for a binding of its own.
@@ -84,6 +91,8 @@ final class Launcher {
             hide()
         } else {
             stack = [keymap.entries]
+            titles = []
+            path = []
             prompt = nil
             show()
         }
@@ -102,18 +111,19 @@ final class Launcher {
                     selected: picker.selected - picker.offset
                 )
             )
-        } else if let entries = stack.last {
-            present(LauncherView(rows: rows(of: entries)))
+        } else if !stack.isEmpty {
+            present(
+                LauncherView(
+                    tree: LauncherView.tree(of: keymap.entries),
+                    path: path,
+                    title: titles.last
+                )
+            )
         }
     }
 
-    private func rows(of entries: [Entry]) -> [LauncherView.Row] {
-        entries.compactMap { entry -> LauncherView.Row? in
-            guard let name = entry.name, entry.shift != true else { return nil }
-
-            return LauncherView.Row(key: entry.key, name: name, isLayer: entry.isLayer)
-        }
-    }
+    /// The keys taken to reach the layer on screen.
+    private var path: [String] = []
 
     private func present(_ view: some View) {
         let hosting = NSHostingView(rootView: view)
@@ -122,6 +132,9 @@ final class Launcher {
         panel.contentView = hosting
         panel.setContentSize(hosting.fittingSize)
         place()
+        // the shadow is cached from the previous size, and the corners of the
+        // old one show through as black lines around the new panel
+        panel.invalidateShadow()
 
         panel.orderFrontRegardless()
         NSApp.activate()
@@ -160,6 +173,8 @@ final class Launcher {
 
         monitor = nil
         stack = []
+        titles = []
+        path = []
         prompt = nil
         picker = nil
         panel.orderOut(nil)
@@ -172,6 +187,19 @@ final class Launcher {
             hide()
             return
         }
+
+        #if DEBUG
+            // ctrl+1…4 swaps the theme under comparison, in place
+            if event.modifierFlags.contains(.control),
+               let digit = event.charactersIgnoringModifiers.flatMap(Int.init),
+               digit >= 1, digit <= Variant.allCases.count {
+                Variant.select(Variant.allCases[digit - 1])
+                NotificationCenter.default.post(name: .variantChanged, object: nil)
+                show()
+
+                return
+            }
+        #endif
 
         if prompt != nil {
             handlePrompt(event)
@@ -241,6 +269,8 @@ final class Launcher {
         if event.keyCode == keyDelete {
             if stack.count > 1 {
                 stack.removeLast()
+                titles.removeLast()
+                path.removeLast()
                 show()
             }
 
@@ -257,6 +287,8 @@ final class Launcher {
 
         if let next = match.entries {
             stack.append(next)
+            titles.append(match.name ?? "")
+            path.append(match.key)
             show()
 
             return

@@ -3,6 +3,8 @@ import Foundation
 /// The keymap is data: nix writes the JSON, so adding an entry is a rebuild of
 /// the config and not of the app.
 struct Keymap: Decodable {
+    /// classic, keyboard, depth or columns.
+    var theme: String?
     var hotkey: Hotkey
     /// Bindings that skip the panel and run one entry straight away, which is
     /// where the applications picker lives.

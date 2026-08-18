@@ -12,6 +12,10 @@ do {
     exit(1)
 }
 
+if let theme = keymap.theme, let variant = Variant(rawValue: theme) {
+    Variant.configured = variant
+}
+
 Clipboard.shared.start()
 
 let launcher = Launcher(keymap: keymap)
@@ -33,5 +37,9 @@ for binding in keymap.hotkeys ?? [] {
         onPress: { launcher.trigger(binding.entry) }
     )
 }
+
+#if DEBUG
+    VariantSwitcher.show { launcher.refresh() }
+#endif
 
 application.run()

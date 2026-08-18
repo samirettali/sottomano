@@ -83,11 +83,35 @@ layout change still binds the key the label shows. A global hotkey is the other
 way round: Carbon takes a key code, which binds the physical position, and that
 is what a hotkey wants — it stays under the same finger.
 
+## Themes
+
+`theme` in the keymap picks how a layer is shown. They are four shapes, not four
+skins:
+
+- **classic** — the black and white list the Hammerspoon panel was.
+- **keyboard** — the panel is the keyboard, with the bound keys lit where the
+  fingers already go. FastTap's argument, on the board itself: the shape a layer
+  makes is learnt before any word on it is read.
+- **depth** — the layers walked through stay behind the current one, blurred and
+  pushed back, so position says where you are instead of a breadcrumb.
+- **columns** — Miller columns, as the NeXTSTEP browser had them: going deeper
+  adds a column rather than replacing what you were looking at.
+
+`ctrl+1…4` swaps between them in a debug build, for this run only. It is
+deliberately not persisted: the keymap is the one place a theme is chosen, and a
+stored override would quietly disagree with it.
+
 ## Panel
 
 The visual system is the Hammerspoon panel, and the numbers in `Style` are the
 ones settled there: black fill, a 3pt border at 40% white, 12pt radius, 24pt
 padding, JetBrains Mono at 19pt with the system monospaced face as a fallback.
+
+**The window draws the shadow, not SwiftUI.** macOS derives it from the window's
+alpha when the window is not opaque, which gives a shadow that follows the
+rounded corner — but it caches it, so `invalidateShadow()` has to follow every
+resize. Without that the previous shadow stays, and its square corners show
+through as black lines around the panel.
 
 - The key is at full white, the arrow at 30%, and a leaf action's label at 70%
   against a layer's 100%. The key is the only thing that has to be read.
