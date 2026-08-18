@@ -27,9 +27,11 @@ struct LauncherView: View {
                     .fill(Style.border)
                     .frame(height: Style.borderWidth)
                     .padding(.vertical, Style.ruleGap / 2)
-                    // full bleed: the rule runs into the border either side of
-                    // it, so it divides the panel rather than sitting inside it
-                    .padding(.horizontal, -Style.padding)
+                    // Runs the full inner width, so the rule divides the panel
+                    // rather than sitting inside it. It stops at the border
+                    // rather than crossing it: both are white at the same
+                    // opacity, and where they overlapped the ends read brighter.
+                    .padding(.horizontal, -(Style.padding - Style.borderWidth))
             }
 
             ForEach(actions) { row in
