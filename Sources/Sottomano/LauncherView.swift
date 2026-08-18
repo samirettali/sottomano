@@ -15,9 +15,6 @@ struct Node: Identifiable {
     /// What running it would produce, for the theme that shows outcomes rather
     /// than names.
     var preview: Preview = .none
-
-    /// Adds a column, which only a layer of keys does.
-    var isLayer: Bool { children != nil }
 }
 
 enum Preview {
@@ -171,7 +168,7 @@ struct RowsView: View {
                     .foregroundStyle(Style.text.opacity(Style.arrowOpacity))
 
                 Text(row.name)
-                    .foregroundStyle(Style.text.opacity(Style.nameOpacity(isLayer: row.continues)))
+                    .foregroundStyle(Style.text.opacity(Style.nameOpacity(continues: row.continues)))
             }
             .font(Style.font())
             .frame(height: Style.lineHeight, alignment: .leading)
@@ -218,7 +215,7 @@ struct KeyboardView: View {
 
     private func cap(_ character: Character) -> some View {
         let bound = row(for: character)
-        let isLayer = bound?.continues ?? false
+        let continues = bound?.continues ?? false
 
         return VStack(spacing: 1) {
             Text(String(character))
@@ -231,27 +228,27 @@ struct KeyboardView: View {
                     .tracking(0.2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .foregroundStyle(Style.text.opacity(isLayer ? 0.85 : 0.5))
+                    .foregroundStyle(Style.text.opacity(continues ? 0.85 : 0.5))
                     .padding(.horizontal, 2)
             }
         }
         .frame(width: KeyboardView.width, height: KeyboardView.height)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(.white.opacity(bound == nil ? 0.015 : (isLayer ? 0.13 : 0.07)))
+                .fill(.white.opacity(bound == nil ? 0.015 : (continues ? 0.13 : 0.07)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .strokeBorder(
-                    .white.opacity(bound == nil ? 0.05 : (isLayer ? 0.5 : 0.22)),
+                    .white.opacity(bound == nil ? 0.05 : (continues ? 0.5 : 0.22)),
                     lineWidth: 1
                 )
         )
         // a bound key is lit, and a layer is lit brighter: the glow is what the
         // eye picks up before it reads anything
         .shadow(
-            color: .white.opacity(bound == nil ? 0 : (isLayer ? 0.18 : 0.07)),
-            radius: isLayer ? 10 : 6
+            color: .white.opacity(bound == nil ? 0 : (continues ? 0.18 : 0.07)),
+            radius: continues ? 10 : 6
         )
     }
 }

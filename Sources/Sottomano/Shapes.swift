@@ -45,7 +45,9 @@ struct ColumnsView: View {
 
                             Spacer(minLength: 6)
 
-                            if row.isLayer {
+                            // anything that leads somewhere, not only a layer
+                            // of keys: without it a picker reads as finished
+                            if row.continues {
                                 Text("›")
                                     .foregroundStyle(Style.text.opacity(active ? 0.4 : 0.18))
                             }

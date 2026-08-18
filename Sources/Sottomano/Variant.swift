@@ -74,8 +74,8 @@ extension Style {
 
     static var arrowOpacity: Double { 0.3 }
 
-    static func nameOpacity(isLayer: Bool) -> Double {
-        isLayer ? 1 : 0.68
+    static func nameOpacity(continues: Bool) -> Double {
+        continues ? 1 : 0.68
     }
 
     static var ruleColor: Color {
