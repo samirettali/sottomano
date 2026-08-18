@@ -248,13 +248,17 @@ struct DepthView: View {
 
 /// The arrival on its own, for a theme that draws its own background.
 struct Reveal: ViewModifier {
+    @Environment(\.arriving) private var arriving
+
     @State private var shown = false
+
+    private var revealed: Bool { shown || !arriving }
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(shown ? 1 : 0.97)
-            .opacity(shown ? 1 : 0)
-            .animation(.spring(response: 0.18, dampingFraction: 0.85), value: shown)
+            .scaleEffect(revealed ? 1 : 0.97)
+            .opacity(revealed ? 1 : 0)
+            .animation(arriving ? .spring(response: 0.18, dampingFraction: 0.85) : nil, value: shown)
             .onAppear { shown = true }
     }
 }

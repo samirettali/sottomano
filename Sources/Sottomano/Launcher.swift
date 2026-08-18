@@ -9,6 +9,9 @@ final class Launcher {
     private let keymap: Keymap
     private let panel: NSPanel
     private var monitor: Any?
+    /// Kept across renders: rebuilding it on every keystroke tore the panel
+    /// down and put it back up, which is what the flashing was.
+    private var hosting: NSHostingView<AnyView>?
 
     /// The layer on screen is the last one; everything before it is the way back.
     private var stack: [[Entry]] = []
@@ -165,10 +168,21 @@ final class Launcher {
     private var path: [String] = []
 
     private func present(_ view: some View) {
-        let hosting = NSHostingView(rootView: view)
-        hosting.layout()
+        let arriving = !panel.isVisible
+        let root = AnyView(view.environment(\.arriving, arriving))
 
-        panel.contentView = hosting
+        let hosting: NSHostingView<AnyView>
+
+        if let existing = self.hosting {
+            hosting = existing
+            hosting.rootView = root
+        } else {
+            hosting = NSHostingView(rootView: root)
+            self.hosting = hosting
+            panel.contentView = hosting
+        }
+
+        hosting.layout()
         panel.setContentSize(hosting.fittingSize)
         place()
         // the shadow is cached from the previous size, and the corners of the
@@ -211,6 +225,8 @@ final class Launcher {
         }
 
         monitor = nil
+        hosting = nil
+        panel.contentView = nil
         stack = []
         titles = []
         path = []

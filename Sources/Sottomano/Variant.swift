@@ -80,11 +80,29 @@ extension Style {
 
 // MARK: - Chrome
 
+/// Whether this render is the panel arriving or the panel already up. Only the
+/// arrival is animated: every keystroke redraws the panel, and a reveal on each
+/// of those is a flash.
+private struct ArrivingKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var arriving: Bool {
+        get { self[ArrivingKey.self] }
+        set { self[ArrivingKey.self] = newValue }
+    }
+}
+
 /// The background, the border, the corner and the way the panel arrives. The
 /// panel is laid out at its final size and only then revealed, so nothing
 /// re-flows while it appears — the spring is on the compositor alone.
 struct Chrome: ViewModifier {
+    @Environment(\.arriving) private var arriving
+
     @State private var shown = false
+
+    private var revealed: Bool { shown || !arriving }
 
     func body(content: Content) -> some View {
         content
@@ -92,9 +110,9 @@ struct Chrome: ViewModifier {
             .background(Background())
             .overlay(Border())
             .clipShape(RoundedRectangle(cornerRadius: Style.radius, style: .continuous))
-            .scaleEffect(shown ? 1 : 0.97)
-            .opacity(shown ? 1 : 0)
-            .animation(.spring(response: 0.18, dampingFraction: 0.85), value: shown)
+            .scaleEffect(revealed ? 1 : 0.97)
+            .opacity(revealed ? 1 : 0)
+            .animation(arriving ? .spring(response: 0.18, dampingFraction: 0.85) : nil, value: shown)
             .onAppear { shown = true }
             .fixedSize()
     }
