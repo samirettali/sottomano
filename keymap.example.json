@@ -1,5 +1,5 @@
 {
-  "hotkey": { "key": "space", "modifiers": ["control", "option"] },
+  "hotkey": { "key": "space", "modifiers": ["command"] },
   "entries": [
     { "key": "b", "name": "browser", "url": "https://" },
     { "key": "t", "name": "terminal", "launch": "Ghostty" },
