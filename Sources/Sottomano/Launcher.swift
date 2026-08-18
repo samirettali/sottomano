@@ -14,7 +14,7 @@ final class KeyPanel: NSPanel {
 
 @MainActor
 final class Launcher: NSObject, NSWindowDelegate {
-    private let keymap: Keymap
+    private var keymap: Keymap
     private let panel: NSPanel
     private var monitor: Any?
     /// Kept across renders: rebuilding it on every keystroke tore the panel
@@ -23,6 +23,14 @@ final class Launcher: NSObject, NSWindowDelegate {
     /// Whoever was in front when the panel opened. Activating this application
     /// takes the focus away, and nothing gives it back on its own.
     private var previous: NSRunningApplication?
+    /// What the panel was showing last time it drew. A new one arrives; the same
+    /// one with another letter typed into it does not.
+    private var showing = ""
+    /// The panel that is leaving, kept alive to dissolve behind the one that is
+    /// arriving. The view itself, not a picture of it: a picture cannot carry
+    /// the glass the window server draws behind the panel, so it came with its
+    /// own dark background and that is what was flashing.
+    private var leaving: AnyView?
 
     /// The layer on screen is the last one; everything before it is the way back.
     private var stack: [[Entry]] = []
@@ -152,9 +160,12 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Redraws what is on screen, for the theme switcher.
-    func refresh() {
-        if panel.isVisible { show() }
+    /// Takes a keymap that has just been written. Whatever was on screen goes:
+    /// half of it would belong to the old bindings.
+    func reload(_ keymap: Keymap) {
+        self.keymap = keymap
+
+        if panel.isVisible { hide() }
     }
 
     /// Runs one entry without opening the panel, for a binding of its own.
@@ -176,25 +187,42 @@ final class Launcher: NSObject, NSWindowDelegate {
 
     // MARK: - Panel
 
+    /// `sottomano › query › google`, for a theme that says where it came from.
+    private var trail: String {
+        (["sottomano"] + titles + [opened].compactMap { $0 })
+            .joined(separator: "  ›  ")
+    }
+
     private func show() {
         if let prompt {
-            present(PromptView(title: prompt.title, text: prompt.text))
+            present(
+                PromptView(
+                    title: Theme.current.title ? trail : prompt.title,
+                    text: prompt.text
+                ),
+                as: "prompt:" + prompt.title
+            )
         } else if let browser {
             present(
                 PickerView(
                     query: browser.query,
                     matches: Array(browser.visible),
                     selected: browser.selected - browser.offset,
-                    header: Browser.shorten(browser.directory)
-                )
+                    header: Theme.current.title
+                        ? trail + "  ›  " + Browser.shorten(browser.directory)
+                        : Browser.shorten(browser.directory)
+                ),
+                as: "browser:" + browser.directory.path
             )
         } else if let picker {
             present(
                 PickerView(
                     query: picker.query,
                     matches: Array(picker.visible),
-                    selected: picker.selected - picker.offset
-                )
+                    selected: picker.selected - picker.offset,
+                    header: Theme.current.title ? trail : nil
+                ),
+                as: "picker"
             )
         } else if !stack.isEmpty {
             present(
@@ -202,21 +230,55 @@ final class Launcher: NSObject, NSWindowDelegate {
                     tree: LauncherView.tree(of: keymap.entries),
                     path: path,
                     title: titles.last
-                )
+                ),
+                as: "layer:" + path.joined()
             )
         }
     }
 
     /// The keys taken to reach the layer on screen.
     private var path: [String] = []
+    /// The name of whatever opened the panel now on screen, for the theme that
+    /// writes where it came from rather than putting it in a column.
+    private var opened: String?
 
-    private func present(_ view: some View) {
-        let arriving = !panel.isVisible
+    private func present(_ view: some View, as signature: String) {
+        let opening = !panel.isVisible
+        // a panel that replaces another one is arriving too: descending a layer,
+        // opening a picker, walking into a directory. Typing into one is not.
+        let arriving = opening || signature != showing
 
-        if arriving {
+        showing = signature
+
+        if opening {
+            // kept past the closing: a typed action runs after the panel is
+            // gone and still has to know where the text belongs
             previous = NSWorkspace.shared.frontmostApplication
         }
-        let root = AnyView(view.environment(\.arriving, arriving))
+        let outgoing = arriving && !opening ? leaving : nil
+
+        // the identity is the panel, not the view type: without it SwiftUI keeps
+        // the state of the old one when the new one happens to be the same
+        // shape, and the reveal never plays
+        let content = AnyView(view.modifier(Entering()).id(signature))
+
+        // only the contents cross: the frame around them never moves, so there
+        // is no second background and no second border to add up
+        var body = AnyView(
+            content
+                .background(alignment: .topLeading) {
+                    if let outgoing { Ghost { outgoing } }
+                }
+        )
+
+        // depth draws a stack of its own panels, frame included
+        if Theme.current.shape != .depth {
+            body = AnyView(body.chrome())
+        }
+
+        let root = AnyView(body.environment(\.arriving, opening))
+
+        leaving = content
 
         let hosting: NSHostingView<AnyView>
 
@@ -256,7 +318,7 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         let frame = screen.frame
         let size = panel.frame.size
-        let top = frame.maxY - frame.height * 0.32
+        let top = frame.maxY - frame.height * Theme.current.top
 
         panel.setFrameOrigin(
             NSPoint(
@@ -273,6 +335,9 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         monitor = nil
         hosting = nil
+        showing = ""
+        leaving = nil
+        opened = nil
         panel.contentView = nil
         panel.orderOut(nil)
 
@@ -281,8 +346,6 @@ final class Launcher: NSObject, NSWindowDelegate {
         if let previous, previous != .current {
             previous.activate()
         }
-
-        previous = nil
         stack = []
         titles = []
         path = []
@@ -300,20 +363,6 @@ final class Launcher: NSObject, NSWindowDelegate {
             return
         }
 
-        #if DEBUG
-            // ctrl+1…8 swaps the theme under comparison, in place. It is read
-            // before the mode does anything, so it works in a flat theme too,
-            // where the plain digits are codes of their own.
-            if event.modifierFlags.contains(.control),
-               let digit = event.charactersIgnoringModifiers.flatMap(Int.init),
-               digit >= 1, digit <= Variant.allCases.count {
-                Variant.select(Variant.allCases[digit - 1])
-                NotificationCenter.default.post(name: .variantChanged, object: nil)
-                show()
-
-                return
-            }
-        #endif
 
         if prompt != nil {
             handlePrompt(event)
@@ -565,6 +614,8 @@ final class Launcher: NSObject, NSWindowDelegate {
 
             let host = URL(string: template.replacingOccurrences(of: "{}", with: ""))?.host ?? "the web"
 
+            opened = entry.name
+
             prompt = Prompt(title: "search \(host)", text: "") { query in
                 Sottomano.open(template: template, query: query)
             }
@@ -575,6 +626,7 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         if let start = entry.browse {
+            opened = entry.name
             browser = enter(Browser.expand(start))
             show()
 
@@ -582,6 +634,7 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         if let pick = entry.pick {
+            opened = entry.name
             open(pick)
 
             return
@@ -827,8 +880,15 @@ final class Launcher: NSObject, NSWindowDelegate {
 
     /// The one action that needs Accessibility: posting a synthetic event is
     /// privileged, and pasting instead would be a synthetic ⌘V all the same.
-    /// The delay lets the app that had the focus take it back first.
+    ///
+    /// This is the one place worth following the focus for: text has to land in
+    /// the window it was meant for, so here the application that had it is put
+    /// back in front on purpose, and the delay lets that happen.
     private func type(_ text: String) {
+        if let previous, previous != .current {
+            previous.activate()
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let source = CGEventSource(stateID: .hidSystemState)
 

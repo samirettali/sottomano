@@ -40,6 +40,17 @@ enum Hotkeys {
         return true
     }
 
+    /// Lets go of every hotkey, so a keymap that has been rewritten can take
+    /// them again without two owners fighting over the same combination.
+    static func reset() {
+        for reference in references {
+            if let reference { UnregisterEventHotKey(reference) }
+        }
+
+        references.removeAll()
+        actions.removeAll()
+    }
+
     private static func install() {
         guard !installed else { return }
 

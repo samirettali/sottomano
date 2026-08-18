@@ -3,8 +3,8 @@ import Foundation
 /// The keymap is data: nix writes the JSON, so adding an entry is a rebuild of
 /// the config and not of the app.
 struct Keymap: Decodable {
-    /// classic, keyboard, depth or columns.
-    var theme: String?
+    /// How the panel looks and how it moves as you go deeper.
+    var theme: Theme?
     /// Control tapped on its own becomes escape. Needs Accessibility, and is
     /// the only part of the app that does.
     var capsEscape: Bool?
@@ -32,12 +32,12 @@ struct Keymap: Decodable {
         var modifiers: [String]
     }
 
-    static func load() throws -> Keymap {
-        let url = FileManager.default
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/sottomano/keymap.json")
+    static let url = FileManager.default
+        .homeDirectoryForCurrentUser
+        .appendingPathComponent(".config/sottomano/keymap.json")
 
-        return try JSONDecoder().decode(Keymap.self, from: Data(contentsOf: url))
+    static func load() throws -> Keymap {
+        try JSONDecoder().decode(Keymap.self, from: Data(contentsOf: url))
     }
 }
 

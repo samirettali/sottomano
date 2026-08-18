@@ -12,8 +12,8 @@ do {
     exit(1)
 }
 
-if let theme = keymap.theme, let variant = Variant(rawValue: theme) {
-    Variant.configured = variant
+if let theme = keymap.theme {
+    Theme.current = theme
 }
 
 Clipboard.shared.start()
@@ -34,26 +34,37 @@ if let command = keymap.hooks?.inputSourceChanged {
 
 let launcher = Launcher(keymap: keymap)
 
-guard Hotkeys.register(
-    key: keymap.hotkey.key,
-    modifiers: keymap.hotkey.modifiers,
-    onPress: { launcher.toggle() }
-) else {
-    FileHandle.standardError.write("sottomano: could not register the hotkey\n".data(using: .utf8)!)
-    exit(1)
+@MainActor
+func bind(_ keymap: Keymap) {
+    Hotkeys.reset()
+
+    guard Hotkeys.register(
+        key: keymap.hotkey.key,
+        modifiers: keymap.hotkey.modifiers,
+        onPress: { launcher.toggle() }
+    ) else {
+        FileHandle.standardError.write("sottomano: could not register the hotkey\n".data(using: .utf8)!)
+        exit(1)
+    }
+
+    // each extra binding runs one entry straight away, without the panel
+    for binding in keymap.hotkeys ?? [] {
+        _ = Hotkeys.register(
+            key: binding.key,
+            modifiers: binding.modifiers,
+            onPress: { launcher.trigger(binding.entry) }
+        )
+    }
 }
 
-// each extra binding runs one entry straight away, without the panel
-for binding in keymap.hotkeys ?? [] {
-    _ = Hotkeys.register(
-        key: binding.key,
-        modifiers: binding.modifiers,
-        onPress: { launcher.trigger(binding.entry) }
-    )
-}
+bind(keymap)
 
-#if DEBUG
-    VariantSwitcher.show { launcher.refresh() }
-#endif
+// written again, taken again: the theme, the bindings and the hotkeys all
+Config.shared.watch { fresh in
+    if let theme = fresh.theme { Theme.current = theme }
+
+    launcher.reload(fresh)
+    bind(fresh)
+}
 
 application.run()

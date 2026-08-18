@@ -50,7 +50,6 @@ struct PickerView: View {
             }
         }
         .frame(width: 560, alignment: .leading)
-        .chrome()
     }
 
     private func row(_ choice: Choice, isSelected: Bool) -> some View {
@@ -77,7 +76,7 @@ struct PickerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Style.selectionColor : .clear)
+                .fill(isSelected ? Style.selection : .clear)
         )
     }
 

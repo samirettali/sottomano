@@ -98,25 +98,38 @@ struct LauncherView: View {
 
     var rows: [Node] { layers.last ?? [] }
 
+    /// `sottomano › query`, the road taken to the layer on screen.
+    var trailText: String {
+        var names = ["sottomano"]
+        var level = tree
+
+        for key in path {
+            guard let node = level.first(where: { $0.key == key }) else { break }
+
+            names.append(node.name)
+            level = node.children ?? []
+        }
+
+        return names.joined(separator: "  ›  ")
+    }
+
     var body: some View {
-        switch Style.variant {
-        case .classic: RowsView(rows: rows).chrome()
-        case .inline: RowsView(rows: rows, inline: true).chrome()
-        case .inlineColumns: ColumnsView(layers: layers, title: title, inline: true).chrome()
-        case .keyboard: KeyboardView(rows: rows).chrome()
+        switch Theme.current.shape {
+        case .keyboard: KeyboardView(rows: rows)
         case .depth: DepthView(layers: layers)
-        case .columns: ColumnsView(layers: layers, title: title).chrome()
+        case .list:
+            switch Theme.current.flow {
+            case .columns: ColumnsView(layers: layers, title: title)
+            case .replace: RowsView(rows: rows, title: trailText)
+            }
         }
     }
 }
 
 // MARK: - Rows
 
-/// The word, plain. Every key is the initial of its own word, so nothing has to
-/// be marked — a highlight would only be pointing at the first letter.
-///
-/// A word that does not contain its key still needs the key said, and that is
-/// the only case it is shown.
+/// The name, with the key in front of it when the key is not its initial. Where
+/// it is, showing it again would only be pointing at the first letter.
 struct Spelled: View {
     let name: String
     let key: String
@@ -130,56 +143,101 @@ struct Spelled: View {
     }
 }
 
-/// The list as it has always been: layers above the rule, actions below.
+/// One row, wherever it is drawn. Both the list and the columns come here, so a
+/// knob that changes a row changes it in one place — they drifted apart once,
+/// and the options stopped working in half the panel.
+struct RowView: View {
+    let node: Node
+    /// A column that has been left behind, drawn quieter than the current one.
+    var dimmed = false
+    /// Whether a layer says that a column follows. Nothing follows in a panel
+    /// that replaces itself.
+    var chevron = false
+
+    private var strength: Double {
+        if dimmed { return 0.32 }
+
+        return node.continues ? 1 : 0.72
+    }
+
+    var body: some View {
+        HStack(spacing: Style.gap) {
+            if Theme.current.key == .column {
+                Text(node.key)
+                    .foregroundStyle(Style.text.opacity(dimmed ? 0.35 : 1))
+                    .frame(width: Style.keyColumn, alignment: .leading)
+
+                if Theme.current.arrow {
+                    Text("→")
+                        .foregroundStyle(Style.muted.opacity(dimmed ? 0.2 : 0.45))
+                }
+
+                Text(node.name)
+                    .foregroundStyle(Style.text.opacity(strength))
+            } else {
+                Spelled(name: node.name, key: node.key)
+                    .foregroundStyle(Style.text.opacity(strength))
+            }
+
+            if chevron {
+                Spacer(minLength: 6)
+
+                if node.kind == .layer {
+                    Text("›")
+                        .foregroundStyle(Style.muted.opacity(dimmed ? 0.2 : 0.5))
+                }
+            }
+        }
+        .font(Style.font())
+        .frame(height: Style.lineHeight, alignment: .leading)
+    }
+}
+
+/// Layers first, then what opens a search, then what acts and is done — or the
+/// order they were written in, when the theme says not to group.
+func blocks(of rows: [Node]) -> [[Node]] {
+    guard Theme.current.group else { return [rows] }
+
+    return [Node.Kind.layer, .search, .action]
+        .map { kind in rows.filter { $0.kind == kind } }
+        .filter { !$0.isEmpty }
+}
+
+/// A heading over a panel: the road taken, or the name of the column.
+struct Heading: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9, weight: .semibold))
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .foregroundStyle(Style.muted.opacity(0.65))
+            .padding(.bottom, 8)
+    }
+}
+
+/// The layer as a list.
 struct RowsView: View {
     let rows: [Node]
-    /// The key lit inside the word rather than in a column of its own.
-    var inline = false
-
-    private var layers: [Node] { rows.filter(\.continues) }
-    private var actions: [Node] { rows.filter { !$0.continues } }
+    /// The road taken, drawn over the list when the theme asks for it.
+    var title: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(layers) { row in
-                line(row)
+            if Theme.current.title, let title {
+                Heading(text: title)
             }
 
-            if !layers.isEmpty && !actions.isEmpty {
-                Rectangle()
-                    .fill(Style.ruleColor)
-                    .frame(height: 1)
-                    .padding(.vertical, Style.ruleGap / 2)
-                    .padding(.horizontal, -(Style.padding - 1))
+            ForEach(Array(blocks(of: rows).enumerated()), id: \.offset) { index, block in
+                if index > 0 {
+                    Color.clear.frame(height: Style.ruleGap)
+                }
+
+                ForEach(block) { row in
+                    RowView(node: row)
+                }
             }
-
-            ForEach(actions) { row in
-                line(row)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func line(_ row: Node) -> some View {
-        if inline {
-            Spelled(name: row.name, key: row.key)
-                .font(Style.font())
-                .foregroundStyle(Style.text.opacity(row.continues ? 1 : 0.72))
-                .frame(height: Style.lineHeight, alignment: .leading)
-        } else {
-            HStack(spacing: Style.gap) {
-                Text(row.key)
-                    .foregroundStyle(Style.text)
-                    .frame(width: Style.keyColumn, alignment: .leading)
-
-                Text("→")
-                    .foregroundStyle(Style.text.opacity(Style.arrowOpacity))
-
-                Text(row.name)
-                    .foregroundStyle(Style.text.opacity(Style.nameOpacity(continues: row.continues)))
-            }
-            .font(Style.font())
-            .frame(height: Style.lineHeight, alignment: .leading)
         }
     }
 }
@@ -311,11 +369,38 @@ struct Reveal: ViewModifier {
 }
 
 enum Style {
-    static let size: CGFloat = 19
     static let gap: CGFloat = 10
-    static let ruleGap: CGFloat = 12
-    static let lineHeight: CGFloat = 26
     static let keyColumn: CGFloat = 12
+
+    static var size: CGFloat { Theme.current.size }
+    static var padding: CGFloat { Theme.current.padding }
+    static var radius: CGFloat { Theme.current.radius }
+    static var borderWidth: CGFloat { Theme.current.borderWidth }
+    static var lineHeight: CGFloat { (size * 1.35).rounded() }
+    /// The blank line between two groups of rows.
+    static var ruleGap: CGFloat { (size * 0.7).rounded() }
+    /// Wide enough for the longest name a layer holds, at the size it is drawn.
+    static var columnWidth: CGFloat { (size * 11.5).rounded() }
+
+    static var text: Color { Color(hex: Theme.current.text) }
+    static var muted: Color { Color(hex: Theme.current.muted) }
+    static var rule: Color { Color(hex: Theme.current.rule) }
+    static var selection: Color { Color(hex: Theme.current.selection) }
+    static var border: Color { Color(hex: Theme.current.border) }
+    static var background: Color { Color(hex: Theme.current.background) }
+
+    /// Zero seconds means no animation at all, not a very quick one.
+    static func reveal(_ wanted: Bool) -> Animation? {
+        guard wanted, Theme.current.animation > 0 else { return nil }
+
+        return .spring(response: Theme.current.animation, dampingFraction: 0.88)
+    }
+
+    static var fade: Animation? {
+        guard Theme.current.animation > 0 else { return nil }
+
+        return .easeOut(duration: Theme.current.animation * 0.75)
+    }
 
     /// Falls back to the system monospaced face, as Pulse does: the panel is
     /// meant to match the terminal, and the font is not bundled.

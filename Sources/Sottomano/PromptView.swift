@@ -18,6 +18,5 @@ struct PromptView: View {
                 .foregroundStyle(Style.text)
         }
         .frame(width: 520, alignment: .leading)
-        .chrome()
     }
 }
