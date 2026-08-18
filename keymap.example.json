@@ -1,0 +1,24 @@
+{
+  "hotkey": { "key": "space", "modifiers": ["control", "option"] },
+  "entries": [
+    { "key": "b", "name": "browser", "url": "https://" },
+    { "key": "t", "name": "terminal", "launch": "Ghostty" },
+    {
+      "key": "o",
+      "name": "open",
+      "entries": [
+        { "key": "o", "name": "obsidian", "launch": "Obsidian" },
+        { "key": "s", "name": "spotify", "launch": "Spotify" },
+        { "key": "z", "name": "zed", "launch": "Zed" }
+      ]
+    },
+    {
+      "key": "s",
+      "name": "search",
+      "entries": [
+        { "key": "g", "name": "google", "url": "https://google.com" },
+        { "key": "n", "name": "nixos", "url": "https://mynixos.com" }
+      ]
+    }
+  ]
+}
