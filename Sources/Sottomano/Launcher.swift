@@ -599,6 +599,10 @@ final class Launcher: NSObject, NSWindowDelegate {
         if let layout = entry.display {
             Toast.show(Display.arrange(layout))
         }
+
+        if entry.layout != nil {
+            Toast.show(InputSource.next(), seconds: 1)
+        }
     }
 
     /// macOS exposes no selection, so the only way to read one is to copy it and

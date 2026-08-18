@@ -18,6 +18,14 @@ if let theme = keymap.theme, let variant = Variant(rawValue: theme) {
 
 Clipboard.shared.start()
 
+if keymap.capsEscape == true {
+    CapsEscape.shared.start()
+}
+
+if let command = keymap.hooks?.inputSourceChanged {
+    InputSource.observe(command)
+}
+
 let launcher = Launcher(keymap: keymap)
 
 guard Hotkeys.register(

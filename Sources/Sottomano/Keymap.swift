@@ -5,6 +5,16 @@ import Foundation
 struct Keymap: Decodable {
     /// classic, keyboard, depth or columns.
     var theme: String?
+    /// Control tapped on its own becomes escape. Needs Accessibility, and is
+    /// the only part of the app that does.
+    var capsEscape: Bool?
+    /// Commands run when something changes rather than when a key is pressed.
+    var hooks: Hooks?
+
+    struct Hooks: Decodable {
+        /// `{}` is the identifier of the layout now in use.
+        var inputSourceChanged: [String]?
+    }
     var hotkey: Hotkey
     /// Bindings that skip the panel and run one entry straight away, which is
     /// where the applications picker lives.
@@ -53,6 +63,8 @@ struct Entry: Decodable {
     var browse: String?
     /// One of the clipboard transforms: base64-decode, jwt, timestamp, …
     var transform: String?
+    /// Cycles the keyboard layout. Only "next" so far.
+    var layout: String?
     /// One of the monitor arrangements: docked, side-by-side, external.
     var display: String?
 
