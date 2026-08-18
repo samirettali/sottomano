@@ -90,6 +90,8 @@ struct LauncherView: View {
     var body: some View {
         switch Style.variant {
         case .classic: RowsView(rows: rows).chrome()
+        case .inline: RowsView(rows: rows, inline: true).chrome()
+        case .inlineColumns: ColumnsView(layers: layers, title: title, inline: true).chrome()
         case .keyboard: KeyboardView(rows: rows).chrome()
         case .depth: DepthView(layers: layers)
         case .columns: ColumnsView(layers: layers, title: title).chrome()
@@ -99,9 +101,35 @@ struct LauncherView: View {
 
 // MARK: - Rows
 
+/// The letter to press, lit inside the word it belongs to. Falls back to
+/// putting it in front when the word does not contain it — `paste` has no `v`,
+/// and inventing one would be worse than admitting it.
+struct Spelled: View {
+    let name: String
+    let key: String
+
+    var body: some View {
+        if let range = name.range(of: key, options: [.caseInsensitive]) {
+            Text(String(name[name.startIndex..<range.lowerBound]))
+                .foregroundStyle(Style.text.opacity(0.42))
+                + Text(String(name[range]))
+                .foregroundStyle(Style.text)
+                + Text(String(name[range.upperBound...]))
+                .foregroundStyle(Style.text.opacity(0.42))
+        } else {
+            Text(key)
+                .foregroundStyle(Style.text)
+                + Text("  " + name)
+                .foregroundStyle(Style.text.opacity(0.42))
+        }
+    }
+}
+
 /// The list as it has always been: layers above the rule, actions below.
 struct RowsView: View {
     let rows: [Node]
+    /// The key lit inside the word rather than in a column of its own.
+    var inline = false
 
     private var layers: [Node] { rows.filter(\.continues) }
     private var actions: [Node] { rows.filter { !$0.continues } }
@@ -126,20 +154,28 @@ struct RowsView: View {
         }
     }
 
+    @ViewBuilder
     private func line(_ row: Node) -> some View {
-        HStack(spacing: Style.gap) {
-            Text(row.key)
-                .foregroundStyle(Style.text)
-                .frame(width: Style.keyColumn, alignment: .leading)
+        if inline {
+            Spelled(name: row.name, key: row.key)
+                .font(Style.font())
+                .opacity(row.continues ? 1 : 0.72)
+                .frame(height: Style.lineHeight, alignment: .leading)
+        } else {
+            HStack(spacing: Style.gap) {
+                Text(row.key)
+                    .foregroundStyle(Style.text)
+                    .frame(width: Style.keyColumn, alignment: .leading)
 
-            Text("→")
-                .foregroundStyle(Style.text.opacity(Style.arrowOpacity))
+                Text("→")
+                    .foregroundStyle(Style.text.opacity(Style.arrowOpacity))
 
-            Text(row.name)
-                .foregroundStyle(Style.text.opacity(Style.nameOpacity(isLayer: row.continues)))
+                Text(row.name)
+                    .foregroundStyle(Style.text.opacity(Style.nameOpacity(isLayer: row.continues)))
+            }
+            .font(Style.font())
+            .frame(height: Style.lineHeight, alignment: .leading)
         }
-        .font(Style.font())
-        .frame(height: Style.lineHeight, alignment: .leading)
     }
 }
 

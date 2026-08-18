@@ -11,6 +11,8 @@ import SwiftUI
 struct ColumnsView: View {
     let layers: [[Node]]
     let title: String?
+    /// The key lit inside the word rather than in a column of its own.
+    var inline = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -27,14 +29,19 @@ struct ColumnsView: View {
 
                     ForEach(layer) { row in
                         HStack(spacing: 8) {
-                            Text(row.key)
-                                .foregroundStyle(Style.text.opacity(active ? 1 : 0.35))
-                                .frame(width: 11, alignment: .leading)
+                            if inline {
+                                Spelled(name: row.name, key: row.key)
+                                    .opacity(active ? (row.continues ? 1 : 0.75) : 0.3)
+                            } else {
+                                Text(row.key)
+                                    .foregroundStyle(Style.text.opacity(active ? 1 : 0.35))
+                                    .frame(width: 11, alignment: .leading)
 
-                            Text(row.name)
-                                .foregroundStyle(
-                                    Style.text.opacity(active ? (row.continues ? 0.95 : 0.62) : 0.28)
-                                )
+                                Text(row.name)
+                                    .foregroundStyle(
+                                        Style.text.opacity(active ? (row.continues ? 0.95 : 0.62) : 0.28)
+                                    )
+                            }
 
                             Spacer(minLength: 6)
 

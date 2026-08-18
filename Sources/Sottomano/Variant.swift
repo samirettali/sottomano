@@ -18,6 +18,11 @@ enum Variant: String, CaseIterable {
     /// Miller columns, as the NeXTSTEP browser had them: every level stays on
     /// screen, side by side, and the way back is visible rather than remembered.
     case columns
+    /// The list, with the letter to press lit inside the word it belongs to
+    /// rather than standing in a column of its own.
+    case inline
+    /// The same, in columns.
+    case inlineColumns
 
     var label: String {
         switch self {
@@ -25,6 +30,8 @@ enum Variant: String, CaseIterable {
         case .keyboard: "Keyboard — the layer lit on the keys themselves"
         case .depth: "Depth — the layers you came through, behind"
         case .columns: "Columns — every level side by side"
+        case .inline: "Inline — the letter lit inside the word"
+        case .inlineColumns: "Inline columns — the same, side by side"
         }
     }
 
@@ -51,7 +58,7 @@ extension Style {
 
     static var radius: CGFloat {
         switch variant {
-        case .classic: 12
+        case .classic, .inline: 12
         case .keyboard: 16
         default: 14
         }
@@ -59,7 +66,7 @@ extension Style {
 
     static var padding: CGFloat {
         switch variant {
-        case .classic, .depth: 24
+        case .classic, .depth, .inline: 24
         case .keyboard: 20
         default: 16
         }
@@ -72,7 +79,9 @@ extension Style {
     }
 
     static var ruleColor: Color {
-        variant == .classic ? .white.opacity(0.25) : .white.opacity(0.14)
+        variant == .classic || variant == .inline
+            ? .white.opacity(0.25)
+            : .white.opacity(0.14)
     }
 
     static var selectionColor: Color { .white.opacity(0.12) }
@@ -120,7 +129,7 @@ struct Chrome: ViewModifier {
 
 private struct Background: View {
     var body: some View {
-        if Style.variant == .classic {
+        if Style.variant == .classic || Style.variant == .inline {
             Color.black
         } else {
             Vibrancy(material: .hudWindow).overlay(Color.black.opacity(0.45))
@@ -132,7 +141,7 @@ private struct Border: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Style.radius, style: .continuous)
 
-        if Style.variant == .classic {
+        if Style.variant == .classic || Style.variant == .inline {
             shape.strokeBorder(.white.opacity(0.4), lineWidth: 3)
         } else {
             // lit along the top edge and dim at the bottom, the way a physical
