@@ -3,40 +3,80 @@ import Carbon.HIToolbox
 /// RegisterEventHotKey rather than a CGEventTap: a tap needs Accessibility and
 /// goes deaf while macOS holds Secure Input, which is exactly when a password
 /// field has the focus. The Carbon hotkey keeps firing and asks no permission.
-final class Hotkey {
-    private var reference: EventHotKeyRef?
-    private var onPress: () -> Void = {}
-
+///
+/// One handler for every hotkey, dispatching on the id Carbon reports. An
+/// application event handler hears every hotkey, not just the one registered
+/// alongside it, so installing one per hotkey would run every binding at once.
+@MainActor
+enum Hotkeys {
     private static let signature = OSType(0x534D_414E) // 'SMAN'
 
-    func register(key: String, modifiers: [String], id: UInt32 = 1, onPress: @escaping () -> Void) -> Bool {
-        self.onPress = onPress
+    private static var actions: [UInt32: () -> Void] = [:]
+    private static var references: [EventHotKeyRef?] = []
+    private static var installed = false
 
-        guard let code = Hotkey.code(for: key) else { return false }
+    static func register(key: String, modifiers: [String], onPress: @escaping () -> Void) -> Bool {
+        guard let code = Hotkeys.code(for: key) else { return false }
+
+        install()
+
+        let id = UInt32(actions.count + 1)
+        var reference: EventHotKeyRef?
+
+        let status = RegisterEventHotKey(
+            code,
+            Hotkeys.mask(modifiers),
+            EventHotKeyID(signature: signature, id: id),
+            GetApplicationEventTarget(),
+            0,
+            &reference
+        )
+
+        guard status == noErr else { return false }
+
+        actions[id] = onPress
+        references.append(reference)
+
+        return true
+    }
+
+    private static func install() {
+        guard !installed else { return }
+
+        installed = true
 
         var type = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
 
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
-            guard let context else { return noErr }
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+            var identifier = EventHotKeyID()
 
-            Unmanaged<Hotkey>.fromOpaque(context).takeUnretainedValue().onPress()
+            GetEventParameter(
+                event,
+                EventParamName(kEventParamDirectObject),
+                EventParamType(typeEventHotKeyID),
+                nil,
+                MemoryLayout<EventHotKeyID>.size,
+                nil,
+                &identifier
+            )
+
+            // Carbon delivers this on the main thread, and staying on it is
+            // what keeps the panel up in the same frame as the keystroke
+            MainActor.assumeIsolated {
+                Hotkeys.dispatch(identifier)
+            }
 
             return noErr
-        }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), nil)
+        }, 1, &type, nil, nil)
+    }
 
-        let status = RegisterEventHotKey(
-            code,
-            Hotkey.mask(modifiers),
-            EventHotKeyID(signature: Hotkey.signature, id: id),
-            GetApplicationEventTarget(),
-            0,
-            &reference
-        )
+    private static func dispatch(_ identifier: EventHotKeyID) {
+        guard identifier.signature == signature else { return }
 
-        return status == noErr
+        actions[identifier.id]?()
     }
 
     /// Carbon binds a physical key, so these are the ANSI positions rather than

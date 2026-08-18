@@ -15,9 +15,8 @@ do {
 Clipboard.shared.start()
 
 let launcher = Launcher(keymap: keymap)
-let hotkey = Hotkey()
 
-guard hotkey.register(
+guard Hotkeys.register(
     key: keymap.hotkey.key,
     modifiers: keymap.hotkey.modifiers,
     onPress: { launcher.toggle() }
@@ -27,19 +26,12 @@ guard hotkey.register(
 }
 
 // each extra binding runs one entry straight away, without the panel
-var extras: [Hotkey] = []
-
-for (index, binding) in (keymap.hotkeys ?? []).enumerated() {
-    let hotkey = Hotkey()
-
-    _ = hotkey.register(
+for binding in keymap.hotkeys ?? [] {
+    _ = Hotkeys.register(
         key: binding.key,
         modifiers: binding.modifiers,
-        id: UInt32(index + 2),
         onPress: { launcher.trigger(binding.entry) }
     )
-
-    extras.append(hotkey)
 }
 
 application.run()
