@@ -34,8 +34,11 @@ there is no tap, no Accessibility permission, and nothing to launder the focus
 through. The hotkey is `RegisterEventHotKey`, a Carbon API that is not a tap
 either.
 
-**Unverified:** whether the panel receives keys without the app activating. The
-code calls `NSApp.activate()` today, which is the certain path. If a
+The panel takes keys and the whole thing lands within a frame, against the
+three or four Hammerspoon needed.
+
+**Still open:** whether the panel would receive keys without the app activating.
+The code calls `NSApp.activate()` today, which is the certain path. If a
 `.nonactivatingPanel` turns out to take key events on its own, drop the
 activation — the app underneath would never lose key status at all.
 
