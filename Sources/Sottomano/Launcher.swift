@@ -4,6 +4,14 @@ import SwiftUI
 /// Owns the panel and what it is showing: either a layer of keys, or a prompt
 /// asking for one line of text. A key press opens a layer, runs an action,
 /// goes back, or closes.
+/// A borderless window refuses to become key, and a window that never was key
+/// never resigns it — which is why the panel could not tell that a click had
+/// gone somewhere else. Typing kept working regardless: the key monitor is on
+/// the application, not on the window.
+final class KeyPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 final class Launcher: NSObject, NSWindowDelegate {
     private let keymap: Keymap
@@ -95,7 +103,7 @@ final class Launcher: NSObject, NSWindowDelegate {
     init(keymap: Keymap) {
         self.keymap = keymap
 
-        panel = NSPanel(
+        panel = KeyPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -111,10 +119,25 @@ final class Launcher: NSObject, NSWindowDelegate {
         super.init()
 
         panel.delegate = self
+
+        // cmd+tab moves the application without a click, and the panel has to
+        // hear about that too
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.panel.isVisible else { return }
+
+                self.hide()
+            }
+        }
     }
 
-    /// A click anywhere else takes the key window with it, which is the same
-    /// thing as saying you are done with the panel.
+    /// A click anywhere else takes the key window with it, and that is the same
+    /// thing as being done with the panel. It only works because `KeyPanel` lets
+    /// a borderless window become key at all.
     nonisolated func windowDidResignKey(_ notification: Notification) {
         MainActor.assumeIsolated {
             guard panel.isVisible else { return }
