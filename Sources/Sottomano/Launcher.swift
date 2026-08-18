@@ -18,11 +18,36 @@ final class Launcher {
     private var prompt: Prompt?
     /// Set while the panel is a list to choose from.
     private var picker: Picker?
+    /// Set while the panel is walking the filesystem.
+    private var browser: Browsing?
 
-    /// The flat themes drop the tree: every command carries its own one or two
-    /// keys, and these are what has been typed towards one.
-    private var commands: [Command] = []
-    private var typed = ""
+    private struct Browsing {
+        var directory: URL
+        var query = ""
+        var selected = 0
+        var offset = 0
+        var choices: [Choice] = []
+
+        static let rows = 9
+
+        var matches: [Choice] {
+            choices
+                .compactMap { choice -> (Choice, Int)? in
+                    guard let score = Fuzzy.rank(query, name: choice.name, subtitle: "") else {
+                        return nil
+                    }
+
+                    return (choice, score + choice.boost)
+                }
+                .sorted { $0.1 == $1.1 ? $0.0.name.count < $1.0.name.count : $0.1 > $1.1 }
+                .map(\.0)
+        }
+
+        var visible: ArraySlice<Choice> {
+            matches.dropFirst(offset).prefix(Browsing.rows)
+        }
+    }
+
 
     private struct Prompt {
         let title: String
@@ -99,8 +124,6 @@ final class Launcher {
             titles = []
             path = []
             prompt = nil
-            typed = ""
-            commands = Style.isFlat ? flatCommands() : []
             show()
         }
     }
@@ -110,6 +133,15 @@ final class Launcher {
     private func show() {
         if let prompt {
             present(PromptView(title: prompt.title, text: prompt.text))
+        } else if let browser {
+            present(
+                PickerView(
+                    query: browser.query,
+                    matches: Array(browser.visible),
+                    selected: browser.selected - browser.offset,
+                    header: Browser.shorten(browser.directory)
+                )
+            )
         } else if let picker {
             present(
                 PickerView(
@@ -118,8 +150,6 @@ final class Launcher {
                     selected: picker.selected - picker.offset
                 )
             )
-        } else if Style.isFlat {
-            present(MatrixView(commands: commands, typed: typed).chrome())
         } else if !stack.isEmpty {
             present(
                 LauncherView(
@@ -184,10 +214,9 @@ final class Launcher {
         stack = []
         titles = []
         path = []
-        commands = []
-        typed = ""
         prompt = nil
         picker = nil
+        browser = nil
         panel.orderOut(nil)
     }
 
@@ -218,44 +247,11 @@ final class Launcher {
             handlePrompt(event)
         } else if picker != nil {
             handlePicker(event)
-        } else if Style.isFlat {
-            handleFlat(event)
+        } else if browser != nil {
+            handleBrowser(event)
         } else {
             handleLayer(event)
         }
-    }
-
-    /// Every command wears its own code. Type towards one; a keystroke that
-    /// leads nowhere starts a new attempt rather than leaving you stuck.
-    private func handleFlat(_ event: NSEvent) {
-        if event.keyCode == keyDelete {
-            typed = ""
-            show()
-
-            return
-        }
-
-        guard let character = event.charactersIgnoringModifiers?.lowercased(),
-              character.count == 1,
-              !event.modifierFlags.contains(.command),
-              !event.modifierFlags.contains(.control)
-        else { return }
-
-        let attempt = typed + character
-
-        if let command = commands.first(where: { $0.code == attempt }) {
-            run(command.entry)
-
-            return
-        }
-
-        typed = commands.contains(where: { $0.code.hasPrefix(attempt) }) ? attempt : ""
-    }
-
-    /// Every command as a place on the grid: its layer is the row, its position
-    /// in that layer the column.
-    private func flatCommands() -> [Command] {
-        Codes.grid(Command.flatten(keymap.entries)).flatMap(\.cells)
     }
 
     private func handlePicker(_ event: NSEvent) {
@@ -307,6 +303,89 @@ final class Launcher {
 
         picker = current
         show()
+    }
+
+    /// Return goes in, delete on an empty query comes back out, and the arrows
+    /// do the same thing for a hand that is already on them.
+    private func handleBrowser(_ event: NSEvent) {
+        guard var current = browser else { return }
+
+        let flags = event.modifierFlags
+        let matches = current.matches
+        let chosen = current.selected < matches.count ? matches[current.selected] : nil
+
+        if event.keyCode == keyReturn || event.keyCode == keyRight {
+            guard let chosen else { return }
+
+            Frecency.shared.remember(chosen.value)
+
+            let url = URL(fileURLWithPath: chosen.value)
+
+            // shift reveals it where a file manager would, for the times only
+            // the Finder will do
+            if flags.contains(.shift) {
+                hide()
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+
+                return
+            }
+
+            if chosen.isDirectory, event.keyCode == keyReturn || event.keyCode == keyRight {
+                browser = enter(url)
+                show()
+
+                return
+            }
+
+            hide()
+            NSWorkspace.shared.open(url)
+
+            return
+        }
+
+        if event.keyCode == keyDelete || event.keyCode == keyLeft {
+            if !current.query.isEmpty, event.keyCode == keyDelete {
+                _ = current.query.popLast()
+                current.selected = 0
+            } else {
+                let parent = current.directory.deletingLastPathComponent()
+
+                guard parent != current.directory else { return }
+
+                browser = enter(parent)
+                show()
+
+                return
+            }
+        } else if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+            current.selected += 1
+        } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+            current.selected -= 1
+        } else if flags.contains(.control), event.charactersIgnoringModifiers == "u" {
+            current.query = ""
+            current.selected = 0
+        } else if !flags.contains(.command), !flags.contains(.control), !flags.contains(.option),
+                  let typed = event.characters, !typed.isEmpty {
+            current.query += typed
+            current.selected = 0
+        } else {
+            return
+        }
+
+        current.selected = max(0, min(current.selected, max(current.matches.count - 1, 0)))
+
+        if current.selected < current.offset {
+            current.offset = current.selected
+        } else if current.selected >= current.offset + Browsing.rows {
+            current.offset = current.selected - Browsing.rows + 1
+        }
+
+        browser = current
+        show()
+    }
+
+    private func enter(_ directory: URL) -> Browsing {
+        Browsing(directory: directory, choices: Browser.read(directory))
     }
 
     private func handleLayer(_ event: NSEvent) {
@@ -418,6 +497,13 @@ final class Launcher {
                 Sottomano.open(template: template, query: query)
             }
 
+            show()
+
+            return
+        }
+
+        if let start = entry.browse {
+            browser = enter(Browser.expand(start))
             show()
 
             return
@@ -628,3 +714,5 @@ private let keyEscape: UInt16 = 53
 private let keyDelete: UInt16 = 51
 private let keyUp: UInt16 = 126
 private let keyDown: UInt16 = 125
+private let keyLeft: UInt16 = 123
+private let keyRight: UInt16 = 124

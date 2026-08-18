@@ -49,6 +49,8 @@ struct Entry: Decodable {
     /// A URL with `{}` where the query goes. Asks for the query first.
     var search: String?
     var pick: Pick?
+    /// A directory to start walking from, `~` included.
+    var browse: String?
     /// One of the clipboard transforms: base64-decode, jwt, timestamp, …
     var transform: String?
     /// One of the monitor arrangements: docked, side-by-side, external.

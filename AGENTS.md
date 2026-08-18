@@ -96,19 +96,20 @@ skins:
   pushed back, so position says where you are instead of a breadcrumb.
 - **columns** — Miller columns, as the NeXTSTEP browser had them: going deeper
   adds a column rather than replacing what you were looking at.
-- **matrix** — the tree is thrown away. The left hand names a row and the right
-  hand names a column, and the two can be struck together: a command is a place
-  on a grid rather than a path through a tree, so there is no descending and
-  nothing to be lost inside. Each layer becomes a row.
-
-`Style.isFlat` marks the themes that reach a command by its own code rather than
-by walking the tree; the launcher reads keys differently for them. Codes for the
-matrix come from `Codes.grid`, which is verified to leave every command with a
-distinct pair.
-
-`ctrl+1…5` swaps between them in a debug build, for this run only. It is
+`ctrl+1…4` swaps between them in a debug build, for this run only. It is
 deliberately not persisted: the keymap is the one place a theme is chosen, and a
 stored override would quietly disagree with it.
+
+## Browsing
+
+`browse` on an entry opens the filesystem at that directory, which is what `f`
+does. It is a place, not a search over the whole disk: the query filters where
+you are standing, return goes in, and delete on an empty query comes back out.
+The arrows do the same for a hand already on them, and shift+return reveals the
+selection in the Finder for the times only the Finder will do.
+
+Directories come before files and dotfiles are left out — on this machine they
+are configuration, and configuration is reached by its own means.
 
 ## Panel
 

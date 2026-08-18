@@ -87,7 +87,6 @@ struct LauncherView: View {
         case .keyboard: KeyboardView(rows: rows).chrome()
         case .depth: DepthView(layers: layers)
         case .columns: ColumnsView(layers: layers, title: title).chrome()
-        case .matrix: EmptyView()
         }
     }
 }

@@ -7,6 +7,8 @@ struct Choice: Identifiable {
     var subtitle: String = ""
     /// Breaks ties between equally good matches; with no query it is the order.
     var boost: Int = 0
+    var icon: NSImage?
+    var isDirectory = false
 }
 
 /// The query on top, the matches under it, the selected row filled. The panel
@@ -15,9 +17,21 @@ struct PickerView: View {
     let query: String
     let matches: [Choice]
     let selected: Int
+    /// Where the query applies, for the browser. The panel is a place before it
+    /// is a search, so the place is written above the search.
+    var header: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let header {
+                Text(header)
+                    .font(Style.font(size: Style.size - 5))
+                    .foregroundStyle(Style.text.opacity(0.55))
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .padding(.bottom, 3)
+            }
+
             Text(query + "|")
                 .font(Style.font())
                 .foregroundStyle(Style.text)
@@ -40,6 +54,34 @@ struct PickerView: View {
     }
 
     private func row(_ choice: Choice, isSelected: Bool) -> some View {
+        HStack(spacing: 10) {
+            if let icon = choice.icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+            }
+
+            content(choice, isSelected: isSelected)
+
+            Spacer(minLength: 0)
+
+            if choice.isDirectory {
+                Text("›")
+                    .font(Style.font())
+                    .foregroundStyle(Style.text.opacity(isSelected ? 0.5 : 0.25))
+            }
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Style.selectionColor : .clear)
+        )
+    }
+
+    private func content(_ choice: Choice, isSelected: Bool) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(choice.name)
                 .font(Style.font())
@@ -53,12 +95,5 @@ struct PickerView: View {
                     .lineLimit(1)
             }
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Style.selectionColor : .clear)
-        )
     }
 }
