@@ -317,6 +317,16 @@ final class Launcher {
         // A search asks first and the panel stays up; everything else acts on
         // the app underneath, which only has the focus once the panel is gone.
         if let template = entry.search {
+            // shift searches whatever is selected instead of asking for it
+            if entry.shift == true {
+                hide()
+                selection { query in
+                    Sottomano.open(template: template, query: query)
+                }
+
+                return
+            }
+
             let host = URL(string: template.replacingOccurrences(of: "{}", with: ""))?.host ?? "the web"
 
             prompt = Prompt(title: "search \(host)", text: "") { query in
@@ -356,6 +366,49 @@ final class Launcher {
 
         if let command = entry.typeOutput {
             type(output(of: command).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+
+        if let name = entry.transform {
+            Toast.show(Transform.apply(name))
+        }
+    }
+
+    /// macOS exposes no selection, so the only way to read one is to copy it and
+    /// put the pasteboard back. The panel is already down by the time this runs,
+    /// which is what gives the app underneath the focus that ⌘C needs.
+    private func selection(_ use: @escaping (String) -> Void) {
+        let board = NSPasteboard.general
+        let saved = board.string(forType: .string)
+        let stamp = board.changeCount
+
+        Clipboard.shared.pause()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let source = CGEventSource(stateID: .hidSystemState)
+
+            for down in [true, false] {
+                let event = CGEvent(keyboardEventSource: source, virtualKey: 8, keyDown: down)
+                event?.flags = .maskCommand
+                event?.post(tap: .cghidEventTap)
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                let copied = board.changeCount != stamp ? board.string(forType: .string) : nil
+
+                if let saved {
+                    board.clearContents()
+                    board.setString(saved, forType: .string)
+                }
+
+                Clipboard.shared.resume()
+
+                guard let copied, !copied.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    Toast.show("nothing selected")
+                    return
+                }
+
+                use(copied.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
         }
     }
 

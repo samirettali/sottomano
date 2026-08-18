@@ -40,8 +40,8 @@ final class Clipboard {
     }
 
     func start() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
-            self?.poll()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+            Task { @MainActor in Clipboard.shared.poll() }
         }
     }
 

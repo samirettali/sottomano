@@ -38,6 +38,8 @@ struct Entry: Decodable {
     /// A URL with `{}` where the query goes. Asks for the query first.
     var search: String?
     var pick: Pick?
+    /// One of the clipboard transforms: base64-decode, jwt, timestamp, …
+    var transform: String?
 
     var isLayer: Bool { entries != nil }
 }
