@@ -20,6 +20,12 @@ Clipboard.shared.start()
 
 if keymap.capsEscape == true {
     CapsEscape.shared.start()
+
+    // a feature that silently does nothing is worse than one that is missing,
+    // and this is the only part of the app that can lose its permission
+    if !CapsEscape.shared.working {
+        Toast.show("caps escape: no accessibility", seconds: 6)
+    }
 }
 
 if let command = keymap.hooks?.inputSourceChanged {

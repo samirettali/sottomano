@@ -1,8 +1,12 @@
 import AppKit
 
-/// Control tapped on its own is escape; control held with another key is
-/// control. macOS already maps caps lock to control, so this is what makes caps
-/// lock carry both.
+/// Control released without anything else having been pressed is escape;
+/// control pressed together with another key is control. macOS already maps caps
+/// lock to control, so this is what makes caps lock carry both.
+///
+/// Escape cannot arrive before the release, and no implementation of a
+/// dual-role key can make it: until the key is let go it may still turn out to
+/// be a modifier.
 ///
 /// The one thing here that needs an event tap, and the one thing that stops
 /// while macOS holds Secure Input — the launcher is unaffected, since its hotkey
@@ -11,13 +15,12 @@ import AppKit
 final class CapsEscape {
     static let shared = CapsEscape()
 
-    /// Held longer than this and it was meant as a modifier, not as escape.
-    private let hold: TimeInterval = 0.15
-
     private var tap: CFMachPort?
     private var held = false
     private var armed = false
-    private var since = Date()
+
+    /// True when the tap is running and allowed to see events.
+    var working: Bool { tap != nil && AXIsProcessTrusted() }
 
     func start() {
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
@@ -75,12 +78,14 @@ final class CapsEscape {
 
         if control {
             armed = true
-            since = Date()
 
             return
         }
 
-        if armed, Date().timeIntervalSince(since) < hold {
+        // No timeout on purpose: how long it was held says nothing, what says
+        // everything is whether anything else was pressed while it was. A tap
+        // is a tap however slow it was.
+        if armed {
             escape()
         }
 
