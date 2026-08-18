@@ -58,7 +58,7 @@ struct LauncherView: View {
             Text(row.name)
                 .foregroundStyle(Style.text.opacity(row.isLayer ? 1 : 0.7))
         }
-        .font(Style.font)
+        .font(Style.font())
         .frame(height: Style.lineHeight, alignment: .leading)
     }
 }
@@ -79,7 +79,7 @@ enum Style {
 
     /// Falls back to the system monospaced face, as Pulse does: the panel is
     /// meant to match the terminal, and the font is not bundled.
-    static var font: Font {
+    static func font(size: CGFloat = size) -> Font {
         if NSFont(name: "JetBrainsMono Nerd Font", size: size) != nil {
             return .custom("JetBrainsMono Nerd Font", size: size)
         }

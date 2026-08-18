@@ -31,7 +31,12 @@ struct Entry: Decodable {
     var launch: String?
     var url: String?
     var shell: [String]?
+    /// Literal text, typed into whatever had the focus.
     var type: String?
+    /// The same, but the text is the command's output: a timestamp, a uuid.
+    var typeOutput: [String]?
+    /// A URL with `{}` where the query goes. Asks for the query first.
+    var search: String?
 
     var isLayer: Bool { entries != nil }
 }
