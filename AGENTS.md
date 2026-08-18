@@ -42,10 +42,14 @@ asks for nothing.
 The panel takes keys and the whole thing lands within a frame, against the
 three or four Hammerspoon needed.
 
-**Still open:** whether the panel would receive keys without the app activating.
-The code calls `NSApp.activate()` today, which is the certain path. If a
-`.nonactivatingPanel` turns out to take key events on its own, drop the
-activation — the app underneath would never lose key status at all.
+`NSApp.activate()` on show is not optional, and neither is activating the
+previous application on hide: nothing gives the focus back on its own, and a
+typed action would otherwise land in a window that had already gone. Activation
+is asynchronous — reading `isKeyWindow` on the line after it still says false.
+
+`KeyPanel` overrides `canBecomeKey`, since a borderless window refuses by
+default. Without it the panel could never resign key either, which is what
+closing on a click outside relies on.
 
 ## What it covers
 
@@ -59,9 +63,20 @@ The tree is deliberately shallow: everything reachable in two keys, one layer at
 most. The clipboard transforms lived here until they were removed for going
 unused — `git log -- Sources/Sottomano/Transform.swift` has them.
 
-Left in Hammerspoon on purpose, because none of it is the launcher: ControlEscape,
-the sketchybar keyboard-layout bridge, the layout toggle, and the window tiling
-fallbacks in `bindings.lua`.
+`capsEscape` carries what ControlEscape.spoon did: control released with nothing
+else pressed sends escape, control with another key stays control. There is no
+duration threshold, because duration says nothing — a tap is a tap however slow
+it was. It is the one part of the app that needs Accessibility and the one that
+stops under Secure Input, and it says so with a toast when the permission is
+missing.
+
+**Development builds are signed with the Developer ID, not ad-hoc.** An ad-hoc
+signature changes with every build, so TCC treats each build as a new
+application and the Accessibility grant silently stops applying while the
+toggle in System Settings still reads as on.
+
+Left in Hammerspoon: the window tiling fallbacks in `bindings.lua`, which only
+run on a machine without aerospace.
 
 ## Keymap
 
