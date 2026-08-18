@@ -8,10 +8,15 @@ struct Node: Identifiable {
     let key: String
     let name: String
     let children: [Node]?
+    /// Whether pressing it leads somewhere rather than finishing. A layer of
+    /// keys does, but so does anything that opens another panel: a picker, the
+    /// filesystem, a question. Only what acts and is done does not.
+    let continues: Bool
     /// What running it would produce, for the theme that shows outcomes rather
     /// than names.
     var preview: Preview = .none
 
+    /// Adds a column, which only a layer of keys does.
     var isLayer: Bool { children != nil }
 }
 
@@ -44,6 +49,10 @@ struct LauncherView: View {
                 key: entry.key,
                 name: name,
                 children: entry.entries.map(LauncherView.tree(of:)),
+                continues: entry.entries != nil
+                    || entry.pick != nil
+                    || entry.browse != nil
+                    || entry.search != nil,
                 preview: LauncherView.preview(of: entry)
             )
         }
@@ -94,8 +103,8 @@ struct LauncherView: View {
 struct RowsView: View {
     let rows: [Node]
 
-    private var layers: [Node] { rows.filter(\.isLayer) }
-    private var actions: [Node] { rows.filter { !$0.isLayer } }
+    private var layers: [Node] { rows.filter(\.continues) }
+    private var actions: [Node] { rows.filter { !$0.continues } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -127,7 +136,7 @@ struct RowsView: View {
                 .foregroundStyle(Style.text.opacity(Style.arrowOpacity))
 
             Text(row.name)
-                .foregroundStyle(Style.text.opacity(Style.nameOpacity(isLayer: row.isLayer)))
+                .foregroundStyle(Style.text.opacity(Style.nameOpacity(isLayer: row.continues)))
         }
         .font(Style.font())
         .frame(height: Style.lineHeight, alignment: .leading)
@@ -173,7 +182,7 @@ struct KeyboardView: View {
 
     private func cap(_ character: Character) -> some View {
         let bound = row(for: character)
-        let isLayer = bound?.isLayer ?? false
+        let isLayer = bound?.continues ?? false
 
         return VStack(spacing: 1) {
             Text(String(character))

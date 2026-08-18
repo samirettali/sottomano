@@ -148,6 +148,10 @@ through as black lines around the panel.
 
 - The key is at full white, the arrow at 30%, and a leaf action's label at 70%
   against a layer's 100%. The key is the only thing that has to be read.
-- Layers sort above leaf actions, with a full-bleed rule between the two blocks.
+- The rule divides what leads somewhere from what finishes. Above it: a layer of
+  keys, but also a picker, the filesystem and anything that asks a question —
+  everything that puts another panel on screen. Below it: what acts and is done.
+  Splitting on "has sub-keys" instead put the clipboard among the finished ones,
+  which it is not.
 - The panel hangs from a line a third of the way down the screen, so the top
   edge does not move as a layer changes the number of rows.

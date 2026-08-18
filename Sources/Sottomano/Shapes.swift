@@ -33,7 +33,7 @@ struct ColumnsView: View {
 
                             Text(row.name)
                                 .foregroundStyle(
-                                    Style.text.opacity(active ? (row.isLayer ? 0.95 : 0.62) : 0.28)
+                                    Style.text.opacity(active ? (row.continues ? 0.95 : 0.62) : 0.28)
                                 )
 
                             Spacer(minLength: 6)
