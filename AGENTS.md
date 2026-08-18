@@ -49,11 +49,15 @@ activation — the app underneath would never lose key status at all.
 
 ## What it covers
 
-Everything the Hammerspoon binder did: launches, the clipboard history, emoji,
-linkding bookmarks, spotctl playlists, the paste entries, search (with shift
-searching the selection), the rbw vault, the clipboard transforms and the three
-monitor arrangements. The applications picker and the Spotify transport keys
-keep their own bindings through `hotkeys`.
+Launches, the filesystem, the clipboard history, emoji, linkding bookmarks,
+spotctl playlists, the paste entries, the query layer (with shift searching the
+selection), the rbw vault and the three monitor arrangements. The applications
+picker, the layout toggle and the Spotify transport keys keep their own bindings
+through `hotkeys`.
+
+The tree is deliberately shallow: everything reachable in two keys, one layer at
+most. The clipboard transforms lived here until they were removed for going
+unused — `git log -- Sources/Sottomano/Transform.swift` has them.
 
 Left in Hammerspoon on purpose, because none of it is the launcher: ControlEscape,
 the sketchybar keyboard-layout bridge, the layout toggle, and the window tiling
@@ -74,6 +78,10 @@ one of `launch`, `url` or `shell`.
 - A `pick` entry either names a list the app builds itself — clipboard, emoji,
   applications — or gives a command whose lines are the choices, tab separated
   into value, name and subtitle. `{}` in what runs afterwards is the value.
+- **`pick.cache` names a file under `~/.cache/sottomano`.** With one, the list
+  left there is shown at once and the command runs behind it, replacing what is
+  on screen when it answers. It is what makes the linkding bookmarks open now
+  rather than after half a second of tailnet.
 - **A vault entry passes the name as an argument, not inside the command line.**
   `rbw get "$1"` with the name as `$1` means a name carrying a quote cannot
   break out of the shell.

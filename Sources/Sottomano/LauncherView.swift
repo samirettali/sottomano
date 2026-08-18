@@ -21,8 +21,6 @@ enum Preview {
     case text(String)
     /// A list that only exists once the command has run.
     case list(String)
-    /// Reads the pasteboard and writes it back.
-    case clipboard(String)
     case display(String)
     case none
 }
@@ -57,7 +55,6 @@ struct LauncherView: View {
         if let text = entry.type { return .text(text) }
         if let command = entry.typeOutput { return .text((command.first?.split(separator: "/").last).map(String.init) ?? "") }
         if let template = entry.search { return .url(URL(string: template.replacingOccurrences(of: "{}", with: ""))?.host ?? "") }
-        if let name = entry.transform { return .clipboard(name) }
         if let layout = entry.display { return .display(layout) }
         if let pick = entry.pick { return .list(pick.source ?? "list") }
 

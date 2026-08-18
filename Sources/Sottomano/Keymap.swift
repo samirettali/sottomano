@@ -61,8 +61,6 @@ struct Entry: Decodable {
     var pick: Pick?
     /// A directory to start walking from, `~` included.
     var browse: String?
-    /// One of the clipboard transforms: base64-decode, jwt, timestamp, …
-    var transform: String?
     /// Cycles the keyboard layout. Only "next" so far.
     var layout: String?
     /// One of the monitor arrangements: docked, side-by-side, external.
@@ -80,6 +78,10 @@ struct Pick: Decodable {
     /// separated by tabs. Name and subtitle are optional.
     var list: [String]?
     var run: [String]?
+    /// A name to keep the answer under. With one, the list on disk is shown at
+    /// once and the command refreshes it behind — which is the difference
+    /// between a panel that opens and a panel that waits for the tailnet.
+    var cache: String?
     /// Runs the command and types its output, which is how a password reaches
     /// the field without the launcher ever holding it.
     var typeOutput: [String]?

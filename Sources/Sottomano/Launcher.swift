@@ -34,6 +34,9 @@ final class Launcher: NSObject, NSWindowDelegate {
     private var picker: Picker?
     /// Set while the panel is walking the filesystem.
     private var browser: Browsing?
+    /// Which picker is on screen, so a list that arrives late knows whether it
+    /// is still wanted.
+    private var pickerToken = 0
 
     private struct Browsing {
         var directory: URL
@@ -285,6 +288,7 @@ final class Launcher: NSObject, NSWindowDelegate {
         path = []
         prompt = nil
         picker = nil
+        pickerToken += 1
         browser = nil
     }
 
@@ -607,10 +611,6 @@ final class Launcher: NSObject, NSWindowDelegate {
             type(output(of: command).trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
-        if let name = entry.transform {
-            Toast.show(Transform.apply(name))
-        }
-
         if let layout = entry.display {
             Toast.show(Display.arrange(layout))
         }
@@ -660,19 +660,21 @@ final class Launcher: NSObject, NSWindowDelegate {
     }
 
     private func open(_ pick: Pick) {
-        let choices: [Choice]
+        var choices: [Choice]
 
         switch pick.source {
         case "clipboard": choices = Clipboard.shared.choices()
         case "emoji": choices = Emoji.choices()
         case "applications": choices = Applications.choices()
-        default: choices = parse(output(of: pick.list ?? []))
+        default: choices = cached(pick) ?? parse(output(of: pick.list ?? []))
         }
 
         guard !choices.isEmpty else {
             hide()
             return
         }
+
+        pickerToken += 1
 
         picker = Picker(choices: choices) { [weak self] choice, alternate in
             guard let self else { return }
@@ -708,6 +710,76 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         show()
+        refreshCache(pick)
+    }
+
+    /// The list as it was left on disk, so a panel backed by the network opens
+    /// at once rather than after it.
+    private func cached(_ pick: Pick) -> [Choice]? {
+        guard let name = pick.cache,
+              let text = try? String(contentsOf: Launcher.cacheFile(name), encoding: .utf8)
+        else { return nil }
+
+        let choices = parse(text)
+
+        return choices.isEmpty ? nil : choices
+    }
+
+    /// Runs the command off the main thread, writes what it says to disk, and
+    /// puts it on screen if the same picker is still there.
+    private func refreshCache(_ pick: Pick) {
+        guard let name = pick.cache, let command = pick.list else { return }
+
+        let token = pickerToken
+
+        Task.detached(priority: .userInitiated) {
+            let text = Launcher.capture(command)
+
+            guard !text.isEmpty else { return }
+
+            try? FileManager.default.createDirectory(
+                at: Launcher.cacheFile(name).deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+
+            try? text.write(to: Launcher.cacheFile(name), atomically: true, encoding: .utf8)
+
+            await MainActor.run {
+                guard self.pickerToken == token, var current = self.picker else { return }
+
+                let fresh = self.parse(text)
+
+                guard !fresh.isEmpty else { return }
+
+                current.choices = fresh
+                self.picker = current
+                self.show()
+            }
+        }
+    }
+
+    nonisolated private static func cacheFile(_ name: String) -> URL {
+        FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache/sottomano/\(name).tsv")
+    }
+
+    nonisolated private static func capture(_ command: [String]) -> String {
+        guard let first = command.first else { return "" }
+
+        let process = Process()
+        let pipe = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: first)
+        process.arguments = Array(command.dropFirst())
+        process.standardOutput = pipe
+
+        guard (try? process.run()) != nil else { return "" }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     /// One choice per line: value, name and subtitle separated by tabs. A line
