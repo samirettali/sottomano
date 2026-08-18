@@ -31,6 +31,7 @@ struct Entry: Decodable {
     var launch: String?
     var url: String?
     var shell: [String]?
+    var type: String?
 
     var isLayer: Bool { entries != nil }
 }

@@ -133,22 +133,51 @@ final class Launcher {
     }
 
     private func run(_ entry: Entry) {
+        // `open -a` rather than a path: it finds the app wherever it lives and
+        // matches on the name the way Spotlight does
         if let app = entry.launch {
-            NSWorkspace.shared.open(
-                URL(fileURLWithPath: "/Applications/\(app).app"),
-                configuration: NSWorkspace.OpenConfiguration()
-            )
+            spawn(["/usr/bin/open", "-a", app])
         }
 
         if let url = entry.url, let parsed = URL(string: url) {
             NSWorkspace.shared.open(parsed)
         }
 
-        if let command = entry.shell, let first = command.first {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: first)
-            process.arguments = Array(command.dropFirst())
-            try? process.run()
+        if let command = entry.shell {
+            spawn(command)
+        }
+
+        if let text = entry.type {
+            type(text)
+        }
+    }
+
+    private func spawn(_ command: [String]) {
+        guard let first = command.first else { return }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: first)
+        process.arguments = Array(command.dropFirst())
+
+        try? process.run()
+    }
+
+    /// The one action that needs Accessibility: posting a synthetic event is
+    /// privileged, and pasting instead would be a synthetic ⌘V all the same.
+    /// The delay lets the app that had the focus take it back first.
+    private func type(_ text: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let source = CGEventSource(stateID: .hidSystemState)
+
+            for character in text.unicodeScalars {
+                var unit = UniChar(character.value)
+
+                for down in [true, false] {
+                    let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
+                    event?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &unit)
+                    event?.post(tap: .cghidEventTap)
+                }
+            }
         }
     }
 }
