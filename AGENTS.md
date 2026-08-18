@@ -96,8 +96,17 @@ skins:
   pushed back, so position says where you are instead of a breadcrumb.
 - **columns** — Miller columns, as the NeXTSTEP browser had them: going deeper
   adds a column rather than replacing what you were looking at.
+- **matrix** — the tree is thrown away. The left hand names a row and the right
+  hand names a column, and the two can be struck together: a command is a place
+  on a grid rather than a path through a tree, so there is no descending and
+  nothing to be lost inside. Each layer becomes a row.
 
-`ctrl+1…4` swaps between them in a debug build, for this run only. It is
+`Style.isFlat` marks the themes that reach a command by its own code rather than
+by walking the tree; the launcher reads keys differently for them. Codes for the
+matrix come from `Codes.grid`, which is verified to leave every command with a
+distinct pair.
+
+`ctrl+1…5` swaps between them in a debug build, for this run only. It is
 deliberately not persisted: the keymap is the one place a theme is chosen, and a
 stored override would quietly disagree with it.
 

@@ -8,8 +8,23 @@ struct Node: Identifiable {
     let key: String
     let name: String
     let children: [Node]?
+    /// What running it would produce, for the theme that shows outcomes rather
+    /// than names.
+    var preview: Preview = .none
 
     var isLayer: Bool { children != nil }
+}
+
+enum Preview {
+    case app(String)
+    case url(String)
+    case text(String)
+    /// A list that only exists once the command has run.
+    case list(String)
+    /// Reads the pasteboard and writes it back.
+    case clipboard(String)
+    case display(String)
+    case none
 }
 
 /// Shows the keymap, focused on the layer the path leads to. Which shape it
@@ -30,9 +45,23 @@ struct LauncherView: View {
             return Node(
                 key: entry.key,
                 name: name,
-                children: entry.entries.map(LauncherView.tree(of:))
+                children: entry.entries.map(LauncherView.tree(of:)),
+                preview: LauncherView.preview(of: entry)
             )
         }
+    }
+
+    static func preview(of entry: Entry) -> Preview {
+        if let app = entry.launch { return .app(app) }
+        if let url = entry.url { return .url(URL(string: url)?.host ?? url) }
+        if let text = entry.type { return .text(text) }
+        if let command = entry.typeOutput { return .text((command.first?.split(separator: "/").last).map(String.init) ?? "") }
+        if let template = entry.search { return .url(URL(string: template.replacingOccurrences(of: "{}", with: ""))?.host ?? "") }
+        if let name = entry.transform { return .clipboard(name) }
+        if let layout = entry.display { return .display(layout) }
+        if let pick = entry.pick { return .list(pick.source ?? "list") }
+
+        return .none
     }
 
     /// Every layer from the root down to the one on screen.
@@ -58,6 +87,7 @@ struct LauncherView: View {
         case .keyboard: KeyboardView(rows: rows).chrome()
         case .depth: DepthView(layers: layers)
         case .columns: ColumnsView(layers: layers, title: title).chrome()
+        case .matrix: EmptyView()
         }
     }
 }

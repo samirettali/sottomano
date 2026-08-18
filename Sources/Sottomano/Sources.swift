@@ -30,22 +30,37 @@ enum Emoji {
     }
 }
 
+extension Applications {
+    /// The application's own icon, found the same way `open -a` finds the app.
+    static func icon(named name: String) -> NSImage? {
+        for root in Applications.roots {
+            let path = root + "/" + name + ".app"
+
+            if FileManager.default.fileExists(atPath: path) {
+                return NSWorkspace.shared.icon(forFile: path)
+            }
+        }
+
+        return nil
+    }
+}
+
 /// Every application macOS knows about, which is what Spotlight lists.
 @MainActor
 enum Applications {
-    static func choices() -> [Choice] {
-        let roots = [
+    static let roots = [
             "/Applications",
             "/System/Applications",
             "/System/Applications/Utilities",
             "/System/Library/CoreServices/Applications",
-            FileManager.default.homeDirectoryForCurrentUser.path + "/Applications",
-        ]
+        FileManager.default.homeDirectoryForCurrentUser.path + "/Applications",
+    ]
 
+    static func choices() -> [Choice] {
         var found: [Choice] = []
         var seen: Set<String> = []
 
-        for root in roots {
+        for root in Applications.roots {
             let contents = (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []
 
             for entry in contents where entry.hasSuffix(".app") {

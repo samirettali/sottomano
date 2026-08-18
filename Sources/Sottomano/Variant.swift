@@ -18,6 +18,9 @@ enum Variant: String, CaseIterable {
     /// Miller columns, as the NeXTSTEP browser had them: every level stays on
     /// screen, side by side, and the way back is visible rather than remembered.
     case columns
+    /// The tree is thrown away: the left hand names a row, the right hand names
+    /// a column, and the two can be struck together.
+    case matrix
 
     var label: String {
         switch self {
@@ -25,6 +28,7 @@ enum Variant: String, CaseIterable {
         case .keyboard: "Keyboard — the layer lit on the keys themselves"
         case .depth: "Depth — the layers you came through, behind"
         case .columns: "Columns — every level side by side"
+        case .matrix: "Matrix — left hand row, right hand column, struck together"
         }
     }
 
@@ -52,20 +56,22 @@ extension Style {
     static var radius: CGFloat {
         switch variant {
         case .classic: 12
-        case .keyboard: 16
-        case .depth: 14
-        case .columns: 14
+        case .keyboard, .matrix: 16
+        default: 14
         }
     }
 
     static var padding: CGFloat {
         switch variant {
-        case .classic: 24
+        case .classic, .depth: 24
         case .keyboard: 20
-        case .depth: 24
-        case .columns: 16
+        case .matrix: 22
+        default: 16
         }
     }
+
+    /// The matrix drops the tree: every command is a row and a column away.
+    static var isFlat: Bool { variant == .matrix }
 
     static var arrowOpacity: Double { 0.3 }
 

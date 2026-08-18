@@ -19,6 +19,11 @@ final class Launcher {
     /// Set while the panel is a list to choose from.
     private var picker: Picker?
 
+    /// The flat themes drop the tree: every command carries its own one or two
+    /// keys, and these are what has been typed towards one.
+    private var commands: [Command] = []
+    private var typed = ""
+
     private struct Prompt {
         let title: String
         var text: String
@@ -94,6 +99,8 @@ final class Launcher {
             titles = []
             path = []
             prompt = nil
+            typed = ""
+            commands = Style.isFlat ? flatCommands() : []
             show()
         }
     }
@@ -111,6 +118,8 @@ final class Launcher {
                     selected: picker.selected - picker.offset
                 )
             )
+        } else if Style.isFlat {
+            present(MatrixView(commands: commands, typed: typed).chrome())
         } else if !stack.isEmpty {
             present(
                 LauncherView(
@@ -175,6 +184,8 @@ final class Launcher {
         stack = []
         titles = []
         path = []
+        commands = []
+        typed = ""
         prompt = nil
         picker = nil
         panel.orderOut(nil)
@@ -189,7 +200,9 @@ final class Launcher {
         }
 
         #if DEBUG
-            // ctrl+1…4 swaps the theme under comparison, in place
+            // ctrl+1…8 swaps the theme under comparison, in place. It is read
+            // before the mode does anything, so it works in a flat theme too,
+            // where the plain digits are codes of their own.
             if event.modifierFlags.contains(.control),
                let digit = event.charactersIgnoringModifiers.flatMap(Int.init),
                digit >= 1, digit <= Variant.allCases.count {
@@ -205,9 +218,44 @@ final class Launcher {
             handlePrompt(event)
         } else if picker != nil {
             handlePicker(event)
+        } else if Style.isFlat {
+            handleFlat(event)
         } else {
             handleLayer(event)
         }
+    }
+
+    /// Every command wears its own code. Type towards one; a keystroke that
+    /// leads nowhere starts a new attempt rather than leaving you stuck.
+    private func handleFlat(_ event: NSEvent) {
+        if event.keyCode == keyDelete {
+            typed = ""
+            show()
+
+            return
+        }
+
+        guard let character = event.charactersIgnoringModifiers?.lowercased(),
+              character.count == 1,
+              !event.modifierFlags.contains(.command),
+              !event.modifierFlags.contains(.control)
+        else { return }
+
+        let attempt = typed + character
+
+        if let command = commands.first(where: { $0.code == attempt }) {
+            run(command.entry)
+
+            return
+        }
+
+        typed = commands.contains(where: { $0.code.hasPrefix(attempt) }) ? attempt : ""
+    }
+
+    /// Every command as a place on the grid: its layer is the row, its position
+    /// in that layer the column.
+    private func flatCommands() -> [Command] {
+        Codes.grid(Command.flatten(keymap.entries)).flatMap(\.cells)
     }
 
     private func handlePicker(_ event: NSEvent) {
