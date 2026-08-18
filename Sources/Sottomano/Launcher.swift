@@ -5,7 +5,7 @@ import SwiftUI
 /// asking for one line of text. A key press opens a layer, runs an action,
 /// goes back, or closes.
 @MainActor
-final class Launcher {
+final class Launcher: NSObject, NSWindowDelegate {
     private let keymap: Keymap
     private let panel: NSPanel
     private var monitor: Any?
@@ -107,6 +107,20 @@ final class Launcher {
         panel.hasShadow = true
         panel.level = .mainMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+
+        super.init()
+
+        panel.delegate = self
+    }
+
+    /// A click anywhere else takes the key window with it, which is the same
+    /// thing as saying you are done with the panel.
+    nonisolated func windowDidResignKey(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            guard panel.isVisible else { return }
+
+            hide()
+        }
     }
 
     /// Redraws what is on screen, for the theme switcher.
