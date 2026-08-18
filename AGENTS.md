@@ -78,9 +78,10 @@ one of `launch`, `url` or `shell`.
   `rbw get "$1"` with the name as `$1` means a name carrying a quote cannot
   break out of the shell.
 
-Keys are matched as characters from `charactersIgnoringModifiers`, not as key
-codes, so a keyboard layout change binds the key the label shows. Only the
-global hotkey needs a key code, and it accepts named keys alone.
+Panel keys are matched as characters from `charactersIgnoringModifiers`, so a
+layout change still binds the key the label shows. A global hotkey is the other
+way round: Carbon takes a key code, which binds the physical position, and that
+is what a hotkey wants — it stays under the same finger.
 
 ## Panel
 
