@@ -37,6 +37,21 @@ struct Entry: Decodable {
     var typeOutput: [String]?
     /// A URL with `{}` where the query goes. Asks for the query first.
     var search: String?
+    var pick: Pick?
 
     var isLayer: Bool { entries != nil }
+}
+
+/// A list to choose from, and what to do with the choice. `{}` in `run` is
+/// replaced by the chosen value.
+struct Pick: Decodable {
+    /// One of the lists the app builds itself: clipboard, emoji, applications.
+    var source: String?
+    /// Otherwise a command, one choice per line: value, name and subtitle
+    /// separated by tabs. Name and subtitle are optional.
+    var list: [String]?
+    var run: [String]?
+    /// Alternative to `run`: type the value, or put it on the pasteboard.
+    var type: Bool?
+    var copy: Bool?
 }

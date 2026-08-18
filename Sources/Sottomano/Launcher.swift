@@ -14,11 +14,47 @@ final class Launcher {
     private var stack: [[Entry]] = []
     /// Set while the panel is asking for text rather than showing a layer.
     private var prompt: Prompt?
+    /// Set while the panel is a list to choose from.
+    private var picker: Picker?
 
     private struct Prompt {
         let title: String
         var text: String
         let submit: (String) -> Void
+    }
+
+    private struct Picker {
+        var choices: [Choice]
+        var query = ""
+        var selected = 0
+        var offset = 0
+        /// The flag is true when shift+return picked it: copy rather than run.
+        let commit: (Choice, Bool) -> Void
+
+        static let rows = 8
+
+        var matches: [Choice] {
+            choices
+                .compactMap { choice -> (Choice, Int)? in
+                    guard let score = Fuzzy.rank(query, name: choice.name, subtitle: choice.subtitle) else {
+                        return nil
+                    }
+
+                    return (choice, score + choice.boost)
+                }
+                .sorted { first, second in
+                    if first.1 != second.1 { return first.1 > second.1 }
+
+                    // equal score means the query matched both the same way, so
+                    // prefer the shorter name: the query covers more of it
+                    return first.0.name.count < second.0.name.count
+                }
+                .map(\.0)
+        }
+
+        var visible: ArraySlice<Choice> {
+            matches.dropFirst(offset).prefix(Picker.rows)
+        }
     }
 
     init(keymap: Keymap) {
@@ -53,13 +89,21 @@ final class Launcher {
     private func show() {
         if let prompt {
             present(PromptView(title: prompt.title, text: prompt.text))
+        } else if let picker {
+            present(
+                PickerView(
+                    query: picker.query,
+                    matches: Array(picker.visible),
+                    selected: picker.selected - picker.offset
+                )
+            )
         } else if let entries = stack.last {
             present(LauncherView(rows: rows(of: entries)))
         }
     }
 
     private func rows(of entries: [Entry]) -> [LauncherView.Row] {
-        entries.compactMap { entry in
+        entries.compactMap { entry -> LauncherView.Row? in
             guard let name = entry.name, entry.shift != true else { return nil }
 
             return LauncherView.Row(key: entry.key, name: name, isLayer: entry.isLayer)
@@ -112,6 +156,7 @@ final class Launcher {
         monitor = nil
         stack = []
         prompt = nil
+        picker = nil
         panel.orderOut(nil)
     }
 
@@ -125,9 +170,62 @@ final class Launcher {
 
         if prompt != nil {
             handlePrompt(event)
+        } else if picker != nil {
+            handlePicker(event)
         } else {
             handleLayer(event)
         }
+    }
+
+    private func handlePicker(_ event: NSEvent) {
+        guard var current = picker else { return }
+
+        let flags = event.modifierFlags
+        let matches = current.matches
+
+        if event.keyCode == keyReturn {
+            guard current.selected < matches.count else { return }
+
+            let choice = matches[current.selected]
+            let commit = current.commit
+
+            hide()
+            commit(choice, flags.contains(.shift))
+
+            return
+        }
+
+        if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+            current.selected += 1
+        } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+            current.selected -= 1
+        } else if event.keyCode == keyDelete {
+            _ = current.query.popLast()
+            current.selected = 0
+        } else if flags.contains(.control), event.charactersIgnoringModifiers == "u" {
+            current.query = ""
+            current.selected = 0
+        } else if flags.contains(.command), event.charactersIgnoringModifiers == "v" {
+            current.query += NSPasteboard.general.string(forType: .string) ?? ""
+            current.selected = 0
+        } else if !flags.contains(.command), !flags.contains(.control), !flags.contains(.option),
+                  let typed = event.characters, !typed.isEmpty {
+            current.query += typed
+            current.selected = 0
+        } else {
+            return
+        }
+
+        current.selected = max(0, min(current.selected, max(current.matches.count - 1, 0)))
+
+        if current.selected < current.offset {
+            current.offset = current.selected
+        } else if current.selected >= current.offset + Picker.rows {
+            current.offset = current.selected - Picker.rows + 1
+        }
+
+        picker = current
+        show()
     }
 
     private func handleLayer(_ event: NSEvent) {
@@ -222,10 +320,16 @@ final class Launcher {
             let host = URL(string: template.replacingOccurrences(of: "{}", with: ""))?.host ?? "the web"
 
             prompt = Prompt(title: "search \(host)", text: "") { query in
-                open(template: template, query: query)
+                Sottomano.open(template: template, query: query)
             }
 
             show()
+
+            return
+        }
+
+        if let pick = entry.pick {
+            open(pick)
 
             return
         }
@@ -252,6 +356,64 @@ final class Launcher {
 
         if let command = entry.typeOutput {
             type(output(of: command).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private func open(_ pick: Pick) {
+        let choices: [Choice]
+
+        switch pick.source {
+        case "clipboard": choices = Clipboard.shared.choices()
+        case "emoji": choices = Emoji.choices()
+        case "applications": choices = Applications.choices()
+        default: choices = parse(output(of: pick.list ?? []))
+        }
+
+        guard !choices.isEmpty else {
+            hide()
+            return
+        }
+
+        picker = Picker(choices: choices) { [weak self] choice, alternate in
+            guard let self else { return }
+
+            Frecency.shared.remember(choice.value)
+
+            // shift+return copies rather than acting, which is the escape hatch
+            // for anywhere the action would be wrong
+            if alternate || pick.copy == true {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(choice.value, forType: .string)
+
+                return
+            }
+
+            if pick.type == true {
+                self.type(choice.value)
+
+                return
+            }
+
+            if let command = pick.run {
+                self.spawn(command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
+            }
+        }
+
+        show()
+    }
+
+    /// One choice per line: value, name and subtitle separated by tabs. A line
+    /// without tabs is all three at once, which is what a plain list gives.
+    private func parse(_ text: String) -> [Choice] {
+        text.split(separator: "\n").map { line in
+            let fields = line.components(separatedBy: "\t")
+
+            return Choice(
+                value: fields[0],
+                name: fields.count > 1 ? fields[1] : fields[0],
+                subtitle: fields.count > 2 ? fields[2] : "",
+                boost: Frecency.shared.score(fields[0])
+            )
         }
     }
 
@@ -314,3 +476,5 @@ private func open(template: String, query: String) {
 private let keyReturn: UInt16 = 36
 private let keyEscape: UInt16 = 53
 private let keyDelete: UInt16 = 51
+private let keyUp: UInt16 = 126
+private let keyDown: UInt16 = 125

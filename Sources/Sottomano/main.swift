@@ -12,6 +12,8 @@ do {
     exit(1)
 }
 
+Clipboard.shared.start()
+
 let launcher = Launcher(keymap: keymap)
 let hotkey = Hotkey()
 
