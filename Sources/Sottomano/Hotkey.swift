@@ -9,7 +9,7 @@ final class Hotkey {
 
     private static let signature = OSType(0x534D_414E) // 'SMAN'
 
-    func register(key: String, modifiers: [String], onPress: @escaping () -> Void) -> Bool {
+    func register(key: String, modifiers: [String], id: UInt32 = 1, onPress: @escaping () -> Void) -> Bool {
         self.onPress = onPress
 
         guard let code = Hotkey.code(for: key) else { return false }
@@ -30,7 +30,7 @@ final class Hotkey {
         let status = RegisterEventHotKey(
             code,
             Hotkey.mask(modifiers),
-            EventHotKeyID(signature: Hotkey.signature, id: 1),
+            EventHotKeyID(signature: Hotkey.signature, id: id),
             GetApplicationEventTarget(),
             0,
             &reference

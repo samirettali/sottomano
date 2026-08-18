@@ -4,7 +4,16 @@ import Foundation
 /// the config and not of the app.
 struct Keymap: Decodable {
     var hotkey: Hotkey
+    /// Bindings that skip the panel and run one entry straight away, which is
+    /// where the applications picker lives.
+    var hotkeys: [Binding]?
     var entries: [Entry]
+
+    struct Binding: Decodable {
+        var key: String
+        var modifiers: [String]
+        var entry: Entry
+    }
 
     struct Hotkey: Decodable {
         var key: String
@@ -40,6 +49,8 @@ struct Entry: Decodable {
     var pick: Pick?
     /// One of the clipboard transforms: base64-decode, jwt, timestamp, …
     var transform: String?
+    /// One of the monitor arrangements: docked, side-by-side, external.
+    var display: String?
 
     var isLayer: Bool { entries != nil }
 }
@@ -53,6 +64,9 @@ struct Pick: Decodable {
     /// separated by tabs. Name and subtitle are optional.
     var list: [String]?
     var run: [String]?
+    /// Runs the command and types its output, which is how a password reaches
+    /// the field without the launcher ever holding it.
+    var typeOutput: [String]?
     /// Alternative to `run`: type the value, or put it on the pasteboard.
     var type: Bool?
     var copy: Bool?

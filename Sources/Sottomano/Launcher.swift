@@ -74,6 +74,11 @@ final class Launcher {
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
     }
 
+    /// Runs one entry without opening the panel, for a binding of its own.
+    func trigger(_ entry: Entry) {
+        run(entry)
+    }
+
     func toggle() {
         if panel.isVisible {
             hide()
@@ -371,6 +376,10 @@ final class Launcher {
         if let name = entry.transform {
             Toast.show(Transform.apply(name))
         }
+
+        if let layout = entry.display {
+            Toast.show(Display.arrange(layout))
+        }
     }
 
     /// macOS exposes no selection, so the only way to read one is to copy it and
@@ -443,6 +452,14 @@ final class Launcher {
 
             if pick.type == true {
                 self.type(choice.value)
+
+                return
+            }
+
+            if let command = pick.typeOutput {
+                let text = self.output(of: command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
+
+                self.type(text.trimmingCharacters(in: .whitespacesAndNewlines))
 
                 return
             }
