@@ -20,6 +20,9 @@ final class Launcher: NSObject, NSWindowDelegate {
     /// Kept across renders: rebuilding it on every keystroke tore the panel
     /// down and put it back up, which is what the flashing was.
     private var hosting: NSHostingView<AnyView>?
+    /// Whoever was in front when the panel opened. Activating this application
+    /// takes the focus away, and nothing gives it back on its own.
+    private var previous: NSRunningApplication?
 
     /// The layer on screen is the last one; everything before it is the way back.
     private var stack: [[Entry]] = []
@@ -206,6 +209,10 @@ final class Launcher: NSObject, NSWindowDelegate {
 
     private func present(_ view: some View) {
         let arriving = !panel.isVisible
+
+        if arriving {
+            previous = NSWorkspace.shared.frontmostApplication
+        }
         let root = AnyView(view.environment(\.arriving, arriving))
 
         let hosting: NSHostingView<AnyView>
@@ -264,13 +271,21 @@ final class Launcher: NSObject, NSWindowDelegate {
         monitor = nil
         hosting = nil
         panel.contentView = nil
+        panel.orderOut(nil)
+
+        // whatever was in front gets the focus back, which is also what makes a
+        // typed action land in the window it was meant for
+        if let previous, previous != .current {
+            previous.activate()
+        }
+
+        previous = nil
         stack = []
         titles = []
         path = []
         prompt = nil
         picker = nil
         browser = nil
-        panel.orderOut(nil)
     }
 
     // MARK: - Keys
