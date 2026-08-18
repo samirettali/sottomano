@@ -8,10 +8,20 @@ struct Node: Identifiable {
     let key: String
     let name: String
     let children: [Node]?
-    /// Whether pressing it leads somewhere rather than finishing. A layer of
-    /// keys does, but so does anything that opens another panel: a picker, the
-    /// filesystem, a question. Only what acts and is done does not.
-    let continues: Bool
+    /// What pressing it leads to, which is the only thing the panels sort on.
+    let kind: Kind
+
+    enum Kind {
+        /// Another layer of keys.
+        case layer
+        /// Something to search in: a picker, the filesystem, a question.
+        case search
+        /// It acts, and it is done.
+        case action
+    }
+
+    /// Leads somewhere rather than finishing.
+    var continues: Bool { kind != .action }
     /// What running it would produce, for the theme that shows outcomes rather
     /// than names.
     var preview: Preview = .none
@@ -46,13 +56,17 @@ struct LauncherView: View {
                 key: entry.key,
                 name: name,
                 children: entry.entries.map(LauncherView.tree(of:)),
-                continues: entry.entries != nil
-                    || entry.pick != nil
-                    || entry.browse != nil
-                    || entry.search != nil,
+                kind: LauncherView.kind(of: entry),
                 preview: LauncherView.preview(of: entry)
             )
         }
+    }
+
+    static func kind(of entry: Entry) -> Node.Kind {
+        if entry.entries != nil { return .layer }
+        if entry.pick != nil || entry.browse != nil || entry.search != nil { return .search }
+
+        return .action
     }
 
     static func preview(of entry: Entry) -> Preview {
@@ -98,26 +112,20 @@ struct LauncherView: View {
 
 // MARK: - Rows
 
-/// The letter to press, lit inside the word it belongs to. Falls back to
-/// putting it in front when the word does not contain it — `paste` has no `v`,
-/// and inventing one would be worse than admitting it.
+/// The word, plain. Every key is the initial of its own word, so nothing has to
+/// be marked — a highlight would only be pointing at the first letter.
+///
+/// A word that does not contain its key still needs the key said, and that is
+/// the only case it is shown.
 struct Spelled: View {
     let name: String
     let key: String
 
     var body: some View {
-        if let range = name.range(of: key, options: [.caseInsensitive]) {
-            Text(String(name[name.startIndex..<range.lowerBound]))
-                .foregroundStyle(Style.text.opacity(0.42))
-                + Text(String(name[range]))
-                .foregroundStyle(Style.text)
-                + Text(String(name[range.upperBound...]))
-                .foregroundStyle(Style.text.opacity(0.42))
+        if name.lowercased().hasPrefix(key.lowercased()) {
+            Text(name)
         } else {
-            Text(key)
-                .foregroundStyle(Style.text)
-                + Text("  " + name)
-                .foregroundStyle(Style.text.opacity(0.42))
+            Text(key + "  " + name)
         }
     }
 }
@@ -156,7 +164,7 @@ struct RowsView: View {
         if inline {
             Spelled(name: row.name, key: row.key)
                 .font(Style.font())
-                .opacity(row.continues ? 1 : 0.72)
+                .foregroundStyle(Style.text.opacity(row.continues ? 1 : 0.72))
                 .frame(height: Style.lineHeight, alignment: .leading)
         } else {
             HStack(spacing: Style.gap) {

@@ -21,21 +21,30 @@ struct ColumnsView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(index == 0 ? "sottomano" : (title(before: index) ?? ""))
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                         .tracking(1.2)
                         .textCase(.uppercase)
                         .foregroundStyle(Style.text.opacity(active ? 0.55 : 0.25))
                         .padding(.bottom, 8)
 
-                    ForEach(layer) { row in
+                    ForEach(Array(grouped(layer).enumerated()), id: \.offset) { index, block in
+                        // a blank line between what leads somewhere and what
+                        // ends there, which the rule does in the other themes
+                        if index > 0 {
+                            Color.clear.frame(height: 12)
+                        }
+
+                    ForEach(block) { row in
                         HStack(spacing: 8) {
                             if inline {
                                 Spelled(name: row.name, key: row.key)
-                                    .opacity(active ? (row.continues ? 1 : 0.75) : 0.3)
+                                    .foregroundStyle(
+                                        Style.text.opacity(active ? (row.continues ? 1 : 0.75) : 0.3)
+                                    )
                             } else {
                                 Text(row.key)
                                     .foregroundStyle(Style.text.opacity(active ? 1 : 0.35))
-                                    .frame(width: 11, alignment: .leading)
+                                    .frame(width: 12, alignment: .leading)
 
                                 Text(row.name)
                                     .foregroundStyle(
@@ -45,18 +54,21 @@ struct ColumnsView: View {
 
                             Spacer(minLength: 6)
 
-                            // anything that leads somewhere, not only a layer
-                            // of keys: without it a picker reads as finished
-                            if row.continues {
+                            // only the columns are marked. What opens a search
+                            // needs no glyph: it has a block of its own, and a
+                            // symbol saying what the blank line already says was
+                            // one thing too many on the row.
+                            if row.kind == .layer {
                                 Text("›")
                                     .foregroundStyle(Style.text.opacity(active ? 0.4 : 0.18))
                             }
                         }
-                        .font(Style.font(size: 15))
-                        .frame(height: 22, alignment: .leading)
+                        .font(Style.font(size: 17))
+                        .frame(height: 25, alignment: .leading)
+                    }
                     }
                 }
-                .frame(width: 172, alignment: .leading)
+                .frame(width: 196, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 4)
 
@@ -68,6 +80,15 @@ struct ColumnsView: View {
             }
         }
         .fixedSize()
+    }
+
+    /// Grouped by where the key leads: another column of keys, then something to
+    /// search in, then what ends there. Opening a column and opening a search
+    /// are different enough to be worth a blank line between them.
+    private func grouped(_ layer: [Node]) -> [[Node]] {
+        [Node.Kind.layer, .search, .action]
+            .map { kind in layer.filter { $0.kind == kind } }
+            .filter { !$0.isEmpty }
     }
 
     /// The heading of a column is the entry that opened it.
