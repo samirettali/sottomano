@@ -16,6 +16,7 @@ if let theme = keymap.theme {
     Theme.current = theme
 }
 
+MenuBar.shared.start()
 Clipboard.shared.start()
 
 if keymap.capsEscape == true {
