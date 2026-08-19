@@ -50,10 +50,14 @@ run: bundle
 # Quitting first is not optional: nothing stops two instances, and `open` faced
 # with a running app of the same bundle id just activates it, so you would be
 # looking at the old binary believing you were testing the new one.
+#
+# KEYMAP=<file> runs against another keymap, which is how one is tried out
+# before it is declared: the deployed keymap is a read-only store symlink, so
+# changing it means rebuilding the machine.
 dev:
 	@pkill -x $(APP_NAME) || true
 	$(MAKE) bundle CONFIG=debug
-	open $(BUNDLE)
+	open $(if $(KEYMAP),--env SOTTOMANO_KEYMAP=$(KEYMAP)) $(BUNDLE)
 
 verify:
 	codesign --verify --strict --verbose=2 $(BUNDLE)

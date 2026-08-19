@@ -11,9 +11,12 @@ enum Emoji {
     }
 
     static func choices() -> [Choice] {
-        let url = FileManager.default
-            .homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/sottomano/emoji.json")
+        // beside the keymap first, so a keymap tried out from somewhere else can
+        // carry its own list, and the deployed one otherwise
+        let beside = Keymap.url.deletingLastPathComponent().appendingPathComponent("emoji.json")
+        let url = FileManager.default.fileExists(atPath: beside.path)
+            ? beside
+            : Keymap.folder.appendingPathComponent("emoji.json")
 
         guard let data = try? Data(contentsOf: url),
               let items = try? JSONDecoder().decode([Item].self, from: data)
