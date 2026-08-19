@@ -10,6 +10,8 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
 `⌘space c` for the clipboard, `⌘space v p` for a password.
 
 - `escape` closes the panel, `delete` goes back one layer.
+- A menu bar item carries the only two things it has to offer without a window:
+  open at login, and quit.
 - Everything is declared in `~/.config/sottomano/keymap.json`, which is read
   again whenever it is written. See `keymap.example.json`.
 
@@ -26,6 +28,8 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
   password manager marks as concealed, and pastes a file back as a file.
 - **Ask for a query** and open it in whichever search engine, or search
   whatever is selected without being asked.
+- **Take a colour off the screen** with the loupe, and get the hex back on the
+  pasteboard.
 - **Rearrange the displays**, cycle the keyboard layout, and make caps lock send
   escape when tapped on its own while staying control when held.
 
@@ -38,20 +42,24 @@ brew install --cask samirettali/tap/sottomano
 Or build it: `make run` needs a Swift toolchain from Xcode or the Command Line
 Tools.
 
-## Why it is not Hammerspoon
+## Where it comes from
 
-It replaces a Hammerspoon setup that did the same things. The panel there was
-drawn by an event tap, and macOS stops delivering events to a tap while Secure
-Input is held — exactly when a password field has the focus — so the launcher
-had to hand the focus to the Finder for the duration of a modal.
+I started with [Leader Key](https://github.com/mikker/LeaderKey), which is the
+idea in its plainest form. Then I moved to [Hammerflow](https://hammerflow.dev),
+a wrapper around the RecursiveBinder spoon that puts the whole tree in one TOML
+file. To change what it did I ended up lifting its code into my own Hammerspoon
+setup, and kept changing it from there.
 
-Here the panel is an `NSPanel` that becomes key and reads `NSEvent` directly:
-no tap, and nothing to launder the focus through. The hotkey is
-`RegisterEventHotKey`, which is not a tap either. Typing a snippet is the one
-thing that needs Accessibility, and the caps lock tap the one thing that stops
-under Secure Input.
+Leaving Hammerspoon was the last step, and it bought two things. Latency first:
+the panel there took three or four frames to appear, this one lands within one.
+Then the event tap it was drawn by, which macOS stops feeding while Secure Input
+is held — exactly when a password field has the focus. Here the panel is an
+`NSPanel` that reads `NSEvent` directly and the hotkey is `RegisterEventHotKey`,
+so there is no tap to starve.
 
-The whole panel lands within a frame.
+That is the argument for writing one. An agent writes the Swift, so the app that
+fits one person's habits exactly costs about as much as bending a general one
+into shape, and nothing has to be a setting.
 
 ## Licence
 
