@@ -407,11 +407,14 @@ enum Style {
         return .easeOut(duration: Theme.current.animation * 0.75)
     }
 
-    /// Falls back to the system monospaced face, as Pulse does: the panel is
-    /// meant to match the terminal, and the font is not bundled.
+    /// Falls back to the system monospaced face: the panel is meant to match the
+    /// terminal, and no font is bundled, so a name the machine has not got must
+    /// still leave a panel that reads.
     static func font(size: CGFloat = size) -> Font {
-        if NSFont(name: "JetBrainsMono Nerd Font", size: size) != nil {
-            return .custom("JetBrainsMono Nerd Font", size: size)
+        let named = Theme.current.font
+
+        if !named.isEmpty, NSFont(name: named, size: size) != nil {
+            return .custom(named, size: size)
         }
 
         return .system(size: size, design: .monospaced)

@@ -45,6 +45,10 @@ struct Theme: Decodable {
     /// changes the number of rows.
     var top: Double = 0.25
 
+    /// The face, by its PostScript or family name — "JetBrainsMono Nerd Font".
+    /// Empty, or a name the machine has not got, falls back to the monospaced
+    /// face of the system.
+    var font = ""
     var size: CGFloat = 19
     /// The square an icon, a thumbnail, a colour or an emoji is drawn in.
     var iconSize: CGFloat = 30
@@ -67,6 +71,50 @@ struct Theme: Decodable {
     nonisolated(unsafe) static var current = Theme()
 
     var isGlass: Bool { background == "glass" }
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case shape, flow, key, arrow, title, group, top
+        case font, size, iconSize, padding, radius, borderWidth, animation
+        case background, border, text, muted, rule, selection
+    }
+
+    /// Every option is optional: an option added to the app must not break a
+    /// keymap written before it existed, and a theme that sets three knobs
+    /// should not have to name the other twenty.
+    init(from decoder: Decoder) throws {
+        self.init()
+
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+
+        func take<T: Decodable>(_ key: CodingKeys, _ path: WritableKeyPath<Theme, T>) {
+            guard let value = try? box.decodeIfPresent(T.self, forKey: key) else { return }
+
+            self[keyPath: path] = value
+        }
+
+        take(.shape, \.shape)
+        take(.flow, \.flow)
+        take(.key, \.key)
+        take(.arrow, \.arrow)
+        take(.title, \.title)
+        take(.group, \.group)
+        take(.top, \.top)
+        take(.font, \.font)
+        take(.size, \.size)
+        take(.iconSize, \.iconSize)
+        take(.padding, \.padding)
+        take(.radius, \.radius)
+        take(.borderWidth, \.borderWidth)
+        take(.animation, \.animation)
+        take(.background, \.background)
+        take(.border, \.border)
+        take(.text, \.text)
+        take(.muted, \.muted)
+        take(.rule, \.rule)
+        take(.selection, \.selection)
+    }
 }
 
 extension Color {
