@@ -3,6 +3,7 @@
   "entries": [
     { "key": "b", "name": "browser", "url": "https://" },
     { "key": "t", "name": "terminal", "launch": "Ghostty" },
+    { "key": "p", "name": "color", "color": "hex" },
     {
       "key": "o",
       "name": "open",

@@ -32,9 +32,20 @@ struct Keymap: Decodable {
         var modifiers: [String]
     }
 
-    static let url = FileManager.default
+    /// `SOTTOMANO_KEYMAP` points the app at another file, which is how a keymap
+    /// is tried out before it is declared: the deployed one is a read-only store
+    /// symlink, so iterating on it would mean a rebuild of the whole machine.
+    static var url: URL {
+        if let path = ProcessInfo.processInfo.environment["SOTTOMANO_KEYMAP"], !path.isEmpty {
+            return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        }
+
+        return folder.appendingPathComponent("keymap.json")
+    }
+
+    static let folder = FileManager.default
         .homeDirectoryForCurrentUser
-        .appendingPathComponent(".config/sottomano/keymap.json")
+        .appendingPathComponent(".config/sottomano")
 
     static func load() throws -> Keymap {
         try JSONDecoder().decode(Keymap.self, from: Data(contentsOf: url))
@@ -63,6 +74,9 @@ struct Entry: Decodable {
     var browse: String?
     /// Cycles the keyboard layout. Only "next" so far.
     var layout: String?
+    /// Takes a colour off the screen with the loupe. Only "hex" so far, which
+    /// is what it puts on the pasteboard.
+    var color: String?
     /// One of the monitor arrangements: docked, side-by-side, external.
     var display: String?
 

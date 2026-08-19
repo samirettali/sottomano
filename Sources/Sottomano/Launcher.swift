@@ -739,6 +739,10 @@ final class Launcher: NSObject, NSWindowDelegate {
         if entry.layout != nil {
             Toast.show(InputSource.next(), seconds: 1)
         }
+
+        if entry.color != nil {
+            Sampler.pick()
+        }
     }
 
     /// macOS exposes no selection, so the only way to read one is to copy it and
