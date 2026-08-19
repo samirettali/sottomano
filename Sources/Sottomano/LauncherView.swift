@@ -198,8 +198,10 @@ struct RowView: View {
 func blocks(of rows: [Node]) -> [[Node]] {
     guard Theme.current.group else { return [rows] }
 
+    // alphabetical inside each block: the key is the initial of its own word,
+    // so ordering by key is ordering by name, and a row keeps its seat
     return [Node.Kind.layer, .search, .action]
-        .map { kind in rows.filter { $0.kind == kind } }
+        .map { kind in rows.filter { $0.kind == kind }.sorted { $0.key < $1.key } }
         .filter { !$0.isEmpty }
 }
 
@@ -373,6 +375,9 @@ enum Style {
     static let keyColumn: CGFloat = 12
 
     static var size: CGFloat { Theme.current.size }
+    static var iconSize: CGFloat { Theme.current.iconSize }
+    /// Around the contents of a row, the same on every side.
+    static var rowPadding: CGFloat { (iconSize * 0.28).rounded() }
     static var padding: CGFloat { Theme.current.padding }
     static var radius: CGFloat { Theme.current.radius }
     static var borderWidth: CGFloat { Theme.current.borderWidth }

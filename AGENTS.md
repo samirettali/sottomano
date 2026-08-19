@@ -97,6 +97,15 @@ one of `launch`, `url` or `shell`.
 - A `pick` entry either names a list the app builds itself — clipboard, emoji,
   applications — or gives a command whose lines are the choices, tab separated
   into value, name and subtitle. `{}` in what runs afterwards is the value.
+- **A list can carry pictures.** A fourth, tab separated field names one — a
+  playlist cover, a favicon — fetched only for the rows on screen, kept under
+  `~/.cache/sottomano/covers` and asked for again after a month. A list of a
+  hundred and fifty playlists would otherwise open a hundred and fifty
+  connections to draw eight of them.
+- **The vault's favicons come from the sites themselves**, `https://<host>/favicon.ico`,
+  with the host taken from the `uris` that `rbw list --raw` already carries.
+  Not from a favicon service: handing one the domains in a password vault is
+  handing over the list of where there is an account.
 - **`pick.cache` names a file under `~/.cache/sottomano`.** With one, the list
   left there is shown at once and the command runs behind it, replacing what is
   on screen when it answers. It is what makes the linkding bookmarks open now
@@ -136,6 +145,15 @@ existed was this panel with different knobs, so the knobs are what is configured
 columns; they had their own copies once, and half the options silently stopped
 working in half the panel.
 
+`iconSize` is the square everything in the icon column is drawn in — an
+application's icon, the thumbnail of a copied picture, a colour, an emoji — and
+a row's padding follows from it, so the two cannot fall out of proportion.
+
+**Every row of a list is the same height, and whether there is an icon column is
+decided over the whole list.** Both were once worked out from the rows in view,
+so the column appeared and vanished as the selection moved past the entries
+that had icons, and everything below it shifted.
+
 ## Browsing
 
 `browse` on an entry opens the filesystem at that directory, which is what `f`
@@ -143,6 +161,13 @@ does. It is a place, not a search over the whole disk: the query filters where
 you are standing, return goes in, and delete on an empty query comes back out.
 The arrows do the same for a hand already on them, and shift+return reveals the
 selection in the Finder for the times only the Finder will do.
+
+The clipboard keeps pictures and files as well as text. A file is pasted back
+as a file rather than as its path, and its thumbnail is made once when it is
+copied: decoding a 24-megapixel photograph to draw it at 22 points, once per
+row, is what made the panel take a moment to open. Frecency is left out of it —
+a line of the clipboard is a one-off, and remembering it only filled the store
+with text that never returns.
 
 Directories come before files and dotfiles are left out — on this machine they
 are configuration, and configuration is reached by its own means.

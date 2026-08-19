@@ -46,6 +46,8 @@ struct Theme: Decodable {
     var top: Double = 0.25
 
     var size: CGFloat = 19
+    /// The square an icon, a thumbnail, a colour or an emoji is drawn in.
+    var iconSize: CGFloat = 30
     var padding: CGFloat = 24
     var radius: CGFloat = 12
     var borderWidth: CGFloat = 3

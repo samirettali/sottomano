@@ -8,20 +8,68 @@ struct Choice: Identifiable {
     /// Breaks ties between equally good matches; with no query it is the order.
     var boost: Int = 0
     var icon: NSImage?
+    /// Drawn as a swatch: text that names a colour is more useful seen.
+    var color: Color?
+    /// A picture to show beside the list when this row is the one selected.
+    var imageFile: String?
+    /// Set when the row stands for a file that was copied, rather than for text
+    /// or for pixels: pasting it should hand over the file itself.
+    var fileURL: String?
+    /// What to draw when there is no picture and no colour, so that a row of
+    /// plain text still starts where every other row starts.
+    var symbol: String?
+    /// A picture to fetch, for a list that names one — a playlist cover.
+    var remote: String?
+    /// A character that is the picture: an emoji is drawn in the icon's square
+    /// rather than crammed into the name, so it is as large as everything else
+    /// in that column.
+    var glyph: String?
     var isDirectory = false
 }
 
 /// The query on top, the matches under it, the selected row filled. The panel
 /// grows downwards, so the top edge stays where every other panel starts.
 struct PickerView: View {
+    /// The list is always this wide, preview or no preview, so the panel can be
+    /// placed on it rather than on whatever it happens to be carrying.
+    static let listWidth: CGFloat = 560
+
     let query: String
     let matches: [Choice]
     let selected: Int
     /// Where the query applies, for the browser. The panel is a place before it
     /// is a search, so the place is written above the search.
     var header: String?
+    /// The picture the selected row stands for, shown beside the list rather
+    /// than squeezed into it.
+    var preview: NSImage?
+    /// Whether anything in the *whole* list has something to show, not only
+    /// what is on screen: worked out from the rows in view, the column and the
+    /// height of a row changed as the selection moved past the ones with icons.
+    var showsIcons = false
 
     var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            list
+
+            if let preview {
+                Rectangle()
+                    .fill(Style.rule)
+                    .frame(width: 1)
+                    .padding(.horizontal, 14)
+
+                Image(nsImage: preview)
+                    .resizable()
+                    .scaledToFit()
+                    // top, not centre: a landscape picture is shorter than the
+                    // box it is given, and centring it left a gap above that
+                    // made it look like it had slipped down the panel
+                    .frame(maxWidth: 320, maxHeight: 320, alignment: .top)
+            }
+        }
+    }
+
+    private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let header {
                 Text(header)
@@ -49,16 +97,21 @@ struct PickerView: View {
                 row(choice, isSelected: index == selected)
             }
         }
-        .frame(width: 560, alignment: .leading)
+        .frame(width: PickerView.listWidth, alignment: .leading)
+    }
+
+
+    /// The same for every row of a list, whatever a row happens to carry. One
+    /// with a subtitle and one without were different heights, so the rows
+    /// under the selection shifted as it moved.
+    private var rowHeight: CGFloat {
+        (showsIcons ? Style.iconSize : Style.lineHeight) + Style.rowPadding * 2
     }
 
     private func row(_ choice: Choice, isSelected: Bool) -> some View {
         HStack(spacing: 10) {
-            if let icon = choice.icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 22, height: 22)
+            if showsIcons {
+                icon(choice).frame(width: Style.iconSize, height: Style.iconSize)
             }
 
             content(choice, isSelected: isSelected)
@@ -71,13 +124,36 @@ struct PickerView: View {
                     .foregroundStyle(Style.text.opacity(isSelected ? 0.5 : 0.25))
             }
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // the same all the way round: an icon sitting closer to the top of its
+        // row than to the side of it reads as a misalignment
+        .padding(Style.rowPadding)
+        .frame(maxWidth: .infinity, minHeight: rowHeight, maxHeight: rowHeight, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Style.selection : .clear)
         )
+    }
+
+    @ViewBuilder
+    private func icon(_ choice: Choice) -> some View {
+        if let glyph = choice.glyph {
+            Text(glyph)
+                .font(.system(size: Style.iconSize * 0.78))
+        } else if let color = choice.color {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(color)
+        } else if let icon = choice.icon ?? Covers.image(choice.remote) {
+            Image(nsImage: icon)
+                .resizable()
+                .scaledToFit()
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        } else if let symbol = choice.symbol {
+            Image(systemName: symbol)
+                .font(.system(size: Style.iconSize * 0.5))
+                .foregroundStyle(Style.muted.opacity(0.7))
+        } else {
+            Color.clear
+        }
     }
 
     private func content(_ choice: Choice, isSelected: Bool) -> some View {

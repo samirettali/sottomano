@@ -57,19 +57,25 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         var matches: [Choice] {
             choices
-                .compactMap { choice -> (Choice, Int)? in
+                .enumerated()
+                .compactMap { index, choice -> (Choice, Int, Int)? in
                     guard let score = Fuzzy.rank(query, name: choice.name, subtitle: "") else {
                         return nil
                     }
 
-                    return (choice, score + choice.boost)
+                    return (choice, score + choice.boost, index)
                 }
-                .sorted { $0.1 == $1.1 ? $0.0.name.count < $1.0.name.count : $0.1 > $1.1 }
+                .sorted { $0.1 == $1.1 ? $0.2 < $1.2 : $0.1 > $1.1 }
                 .map(\.0)
         }
 
         var visible: ArraySlice<Choice> {
             matches.dropFirst(offset).prefix(Browsing.rows)
+        }
+
+        /// Asked of every choice, not of the ones in view.
+        var showsIcons: Bool {
+            choices.contains { $0.icon != nil }
         }
     }
 
@@ -92,25 +98,37 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         var matches: [Choice] {
             choices
-                .compactMap { choice -> (Choice, Int)? in
+                .enumerated()
+                .compactMap { index, choice -> (Choice, Int, Int)? in
                     guard let score = Fuzzy.rank(query, name: choice.name, subtitle: choice.subtitle) else {
                         return nil
                     }
 
-                    return (choice, score + choice.boost)
+                    return (choice, score + choice.boost, index)
                 }
                 .sorted { first, second in
                     if first.1 != second.1 { return first.1 > second.1 }
 
-                    // equal score means the query matched both the same way, so
-                    // prefer the shorter name: the query covers more of it
-                    return first.0.name.count < second.0.name.count
+                    // A tie goes to whoever came first, which is the order the
+                    // source put them in — recency for the clipboard. Breaking
+                    // it by the length of the name instead floated the short
+                    // ones up: a file copied ten minutes ago sat above one
+                    // copied a moment before, for having fewer letters.
+                    return first.2 < second.2
                 }
                 .map(\.0)
         }
 
         var visible: ArraySlice<Choice> {
             matches.dropFirst(offset).prefix(Picker.rows)
+        }
+
+        /// Asked of every choice, not of the ones in view.
+        var showsIcons: Bool {
+            choices.contains {
+                $0.icon != nil || $0.color != nil || $0.symbol != nil
+                    || $0.remote != nil || $0.glyph != nil
+            }
         }
     }
 
@@ -187,6 +205,30 @@ final class Launcher: NSObject, NSWindowDelegate {
 
     // MARK: - Panel
 
+    /// The picture the selected row stands for, if it stands for one.
+    ///
+    /// Read from the file rather than taken from the row: a row that is a file
+    /// wears the icon of its kind, and blowing a 32pt document icon up to 320
+    /// is not a preview of anything.
+    private func preview(of picker: Picker) -> NSImage? {
+        let matches = picker.matches
+
+        guard picker.selected < matches.count, let file = matches[picker.selected].imageFile else {
+            return nil
+        }
+
+        // 640 across is more than a 320 point box can show, and a fraction of
+        // what a photograph off a camera would cost to decode whole
+        return Clipboard.thumbnail(file, size: 640)
+    }
+
+    /// Redraws the list once a picture has arrived for one of its rows.
+    private func refreshPicker() {
+        guard picker != nil, panel.isVisible else { return }
+
+        show()
+    }
+
     /// `sottomano › query › google`, for a theme that says where it came from.
     private var trail: String {
         (["sottomano"] + titles + [opened].compactMap { $0 })
@@ -210,19 +252,30 @@ final class Launcher: NSObject, NSWindowDelegate {
                     selected: browser.selected - browser.offset,
                     header: Theme.current.title
                         ? trail + "  ›  " + Browser.shorten(browser.directory)
-                        : Browser.shorten(browser.directory)
+                        : Browser.shorten(browser.directory),
+                    showsIcons: browser.showsIcons
                 ),
-                as: "browser:" + browser.directory.path
+                as: "browser:" + browser.directory.path,
+                centredOn: PickerView.listWidth + Style.padding * 2
             )
         } else if let picker {
+            // only what is on screen: fetching a cover for every row of a long
+            // list would open a hundred connections to draw eight pictures
+            Covers.ensure(picker.visible.compactMap(\.remote)) { [weak self] in
+                self?.refreshPicker()
+            }
+
             present(
                 PickerView(
                     query: picker.query,
                     matches: Array(picker.visible),
                     selected: picker.selected - picker.offset,
-                    header: Theme.current.title ? trail : nil
+                    header: Theme.current.title ? trail : nil,
+                    preview: preview(of: picker),
+                    showsIcons: picker.showsIcons
                 ),
-                as: "picker"
+                as: "picker",
+                centredOn: PickerView.listWidth + Style.padding * 2
             )
         } else if !stack.isEmpty {
             present(
@@ -242,7 +295,7 @@ final class Launcher: NSObject, NSWindowDelegate {
     /// writes where it came from rather than putting it in a column.
     private var opened: String?
 
-    private func present(_ view: some View, as signature: String) {
+    private func present(_ view: some View, as signature: String, centredOn anchor: CGFloat? = nil) {
         let opening = !panel.isVisible
         // a panel that replaces another one is arriving too: descending a layer,
         // opening a picker, walking into a directory. Typing into one is not.
@@ -293,7 +346,7 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         hosting.layout()
         panel.setContentSize(hosting.fittingSize)
-        place()
+        place(keepingLeftEdge: !arriving, centredOn: anchor)
         // the shadow is cached from the previous size, and the corners of the
         // old one show through as black lines around the new panel
         panel.invalidateShadow()
@@ -313,16 +366,31 @@ final class Launcher: NSObject, NSWindowDelegate {
 
     /// Hangs from one line a third of the way down, so the top edge stays put
     /// however many rows the layer has.
-    private func place() {
+    private func place(keepingLeftEdge: Bool = false, centredOn anchor: CGFloat? = nil) {
         guard let screen = NSScreen.main else { return }
 
         let frame = screen.frame
         let size = panel.frame.size
         let top = frame.maxY - frame.height * Theme.current.top
 
+        // The same panel grown wider — a preview opening beside the list — keeps
+        // where it is and expands to the right. Centring it again would slide
+        // the list out from under the eye that is reading it.
+        if keepingLeftEdge {
+            panel.setFrameOrigin(NSPoint(x: panel.frame.minX, y: (top - size.height).rounded()))
+
+            return
+        }
+
+        // Centred on the part that is always there — the list — rather than on
+        // everything the panel happens to be carrying. With a preview already
+        // open on the first row, centring the whole thing pushed the list off
+        // to one side, and the panel looked like it had opened crooked.
+        let width = anchor ?? size.width
+
         panel.setFrameOrigin(
             NSPoint(
-                x: (frame.width - size.width).rounded() / 2 + frame.minX,
+                x: (frame.width - width).rounded() / 2 + frame.minX,
                 y: (top - size.height).rounded()
             )
         )
@@ -732,13 +800,50 @@ final class Launcher: NSObject, NSWindowDelegate {
         picker = Picker(choices: choices) { [weak self] choice, alternate in
             guard let self else { return }
 
-            Frecency.shared.remember(choice.value)
+            // Frecency is for things that come back: an application, an emoji, a
+            // bookmark. A line of the clipboard is a one-off, and remembering it
+            // would only fill the store with text that never returns — and the
+            // clipboard is ordered by time anyway.
+            if pick.source != "clipboard" {
+                Frecency.shared.remember(choice.value)
+            }
+
+            // Two verbs on one row where a list gives both: return runs the
+            // command, shift+return types what it answers. It is what the vault
+            // wants — copy the password, or put it straight in the field — and
+            // it saves the same picker from being listed twice under two keys.
+            if alternate, let command = pick.typeOutput, pick.run != nil {
+                let text = self.output(of: command.map {
+                    $0.replacingOccurrences(of: "{}", with: choice.value)
+                })
+
+                self.type(text.trimmingCharacters(in: .whitespacesAndNewlines))
+
+                return
+            }
 
             // shift+return copies rather than acting, which is the escape hatch
             // for anywhere the action would be wrong
             if alternate || pick.copy == true {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(choice.value, forType: .string)
+
+                return
+            }
+
+            // Neither a picture nor a file can be typed: they go back on the
+            // pasteboard and are pasted from there, which is the one case worth
+            // clobbering it for. A file goes as a file, not as its path.
+            if let file = choice.fileURL {
+                Clipboard.shared.put(file: file)
+                self.paste()
+
+                return
+            }
+
+            if let picture = choice.imageFile {
+                Clipboard.shared.put(picture)
+                self.paste()
 
                 return
             }
@@ -835,8 +940,9 @@ final class Launcher: NSObject, NSWindowDelegate {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
-    /// One choice per line: value, name and subtitle separated by tabs. A line
-    /// without tabs is all three at once, which is what a plain list gives.
+    /// One choice per line, tab separated: value, name, subtitle, and the
+    /// address of a picture. A line without tabs is all of them at once, which
+    /// is what a plain list gives.
     private func parse(_ text: String) -> [Choice] {
         text.split(separator: "\n").map { line in
             let fields = line.components(separatedBy: "\t")
@@ -845,8 +951,26 @@ final class Launcher: NSObject, NSWindowDelegate {
                 value: fields[0],
                 name: fields.count > 1 ? fields[1] : fields[0],
                 subtitle: fields.count > 2 ? fields[2] : "",
-                boost: Frecency.shared.score(fields[0])
+                boost: Frecency.shared.score(fields[0]),
+                remote: fields.count > 3 && !fields[3].isEmpty ? fields[3] : nil
             )
+        }
+    }
+
+    /// ⌘V into whatever had the focus, once it has it back.
+    private func paste() {
+        if let previous, previous != .current {
+            previous.activate()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let source = CGEventSource(stateID: .hidSystemState)
+
+            for down in [true, false] {
+                let event = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: down)
+                event?.flags = .maskCommand
+                event?.post(tap: .cghidEventTap)
+            }
         }
     }
 

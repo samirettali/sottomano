@@ -83,7 +83,8 @@ struct Pick: Decodable {
     /// between a panel that opens and a panel that waits for the tailnet.
     var cache: String?
     /// Runs the command and types its output, which is how a password reaches
-    /// the field without the launcher ever holding it.
+    /// the field without the launcher ever holding it. Alongside `run` it
+    /// becomes the second verb of the same row: return runs, shift+return types.
     var typeOutput: [String]?
     /// Alternative to `run`: type the value, or put it on the pasteboard.
     var type: Bool?
