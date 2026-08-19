@@ -2,6 +2,8 @@
 
 A macOS launcher driven by one leader key.
 
+![The panel Sottomano opens on ⌘space](./sottomano.png)
+
 Press ⌘space and a panel lists the keys available. Each key opens another layer,
 opens something to search in, or acts and is done — so a command is a short
 sequence rather than a shortcut to remember: `⌘space o` for the applications,
