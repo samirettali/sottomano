@@ -725,11 +725,11 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         if let text = entry.type {
-            type(text)
+            paste(text)
         }
 
         if let command = entry.typeOutput {
-            type(output(of: command).trimmingCharacters(in: .whitespacesAndNewlines))
+            paste(output(of: command).trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
         if let layout = entry.display {
@@ -821,7 +821,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                     $0.replacingOccurrences(of: "{}", with: choice.value)
                 })
 
-                self.type(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.paste(text.trimmingCharacters(in: .whitespacesAndNewlines))
 
                 return
             }
@@ -835,9 +835,16 @@ final class Launcher: NSObject, NSWindowDelegate {
                 return
             }
 
-            // Neither a picture nor a file can be typed: they go back on the
-            // pasteboard and are pasted from there, which is the one case worth
-            // clobbering it for. A file goes as a file, not as its path.
+            // What was just pasted is what is most likely to be wanted again,
+            // so it goes back to the top rather than staying where it was.
+            if pick.source == "clipboard" {
+                Clipboard.shared.promote(choice)
+            }
+
+            // A picture and a file are handed over as themselves rather than as
+            // text, so the pasteboard keeps them until the next copy: there is
+            // nothing to put back that would still make sense. A file goes as a
+            // file, not as its path.
             if let file = choice.fileURL {
                 Clipboard.shared.put(file: file)
                 self.paste()
@@ -853,7 +860,7 @@ final class Launcher: NSObject, NSWindowDelegate {
             }
 
             if pick.type == true {
-                self.type(choice.value)
+                self.paste(choice.value)
 
                 return
             }
@@ -861,7 +868,7 @@ final class Launcher: NSObject, NSWindowDelegate {
             if let command = pick.typeOutput {
                 let text = self.output(of: command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
 
-                self.type(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.paste(text.trimmingCharacters(in: .whitespacesAndNewlines))
 
                 return
             }
@@ -961,8 +968,27 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
     }
 
-    /// ⌘V into whatever had the focus, once it has it back.
-    private func paste() {
+    /// ⌘V into whatever had the focus, once it has it back. With text it lends
+    /// the pasteboard for the length of the paste and puts back what was there.
+    ///
+    /// This is the one action that needs Accessibility: posting a synthetic
+    /// event is privileged. It is also the one place worth following the focus
+    /// for, so the application that had it is put back in front on purpose and
+    /// the delay lets that happen.
+    private func paste(_ text: String? = nil) {
+        let board = NSPasteboard.general
+        let saved = text == nil ? nil : board.string(forType: .string)
+
+        if let text {
+            Clipboard.shared.pause()
+            board.clearContents()
+            board.setString(text, forType: .string)
+            // What goes through here can be a password out of the vault, and a
+            // second clipboard manager watching alongside this one has no other
+            // way of knowing to look away.
+            board.setString("", forType: .init("org.nspasteboard.ConcealedType"))
+        }
+
         if let previous, previous != .current {
             previous.activate()
         }
@@ -974,6 +1000,20 @@ final class Launcher: NSObject, NSWindowDelegate {
                 let event = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: down)
                 event?.flags = .maskCommand
                 event?.post(tap: .cghidEventTap)
+            }
+
+            guard text != nil else { return }
+
+            // Putting it back any sooner takes the text out from under the
+            // paste that is still being served.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                board.clearContents()
+
+                if let saved {
+                    board.setString(saved, forType: .string)
+                }
+
+                Clipboard.shared.resume()
             }
         }
     }
@@ -1006,31 +1046,6 @@ final class Launcher: NSObject, NSWindowDelegate {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
-    /// The one action that needs Accessibility: posting a synthetic event is
-    /// privileged, and pasting instead would be a synthetic ⌘V all the same.
-    ///
-    /// This is the one place worth following the focus for: text has to land in
-    /// the window it was meant for, so here the application that had it is put
-    /// back in front on purpose, and the delay lets that happen.
-    private func type(_ text: String) {
-        if let previous, previous != .current {
-            previous.activate()
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            let source = CGEventSource(stateID: .hidSystemState)
-
-            for character in text.unicodeScalars {
-                var unit = UniChar(character.value)
-
-                for down in [true, false] {
-                    let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
-                    event?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &unit)
-                    event?.post(tap: .cghidEventTap)
-                }
-            }
-        }
-    }
 }
 
 private func open(template: String, query: String) {

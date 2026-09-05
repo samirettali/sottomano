@@ -198,6 +198,29 @@ final class Clipboard {
         }
     }
 
+    /// Moves what was just pasted back to the top. The date goes with it: the
+    /// entry has been through the pasteboard again, and leaving it behind would
+    /// put a row that reads "3h ago" above one that reads "now".
+    func promote(_ choice: Choice) {
+        let found = items.firstIndex { item in
+            if let image = item.image {
+                return pictures.appendingPathComponent(image).path == choice.imageFile
+            }
+
+            if let file = item.file { return file == choice.fileURL }
+
+            return item.text == choice.value
+        }
+
+        guard let found, found != 0 else { return }
+
+        var item = items.remove(at: found)
+        item.at = Date()
+
+        items.insert(item, at: 0)
+        save()
+    }
+
     private func poll() {
         let board = NSPasteboard.general
 
@@ -273,6 +296,10 @@ final class Clipboard {
 
         items = Array(items.prefix(limit))
 
+        save()
+    }
+
+    private func save() {
         try? FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         try? JSONEncoder().encode(items).write(to: url)
     }

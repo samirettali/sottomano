@@ -34,10 +34,19 @@ there is no tap, no Accessibility permission, and nothing to launder the focus
 through. The hotkey is `RegisterEventHotKey`, a Carbon API that is not a tap
 either.
 
-`type` is the one action that needs Accessibility: posting a synthetic key event
-is privileged. Pasting instead would be a synthetic ⌘V all the same. Everything
-else — launching, opening a URL, running a command, rearranging the displays —
-asks for nothing.
+Putting text into the focused window is the one action that needs Accessibility:
+posting a synthetic event is privileged either way. Everything else — launching,
+opening a URL, running a command, rearranging the displays — asks for nothing.
+
+It is a synthetic ⌘V, not a key event per character. Typing was tried first and
+kept the pasteboard out of it, but a long entry took a visible age, and an
+application that reads the field while it fills saw a hundred half-written
+states. So the text is lent to the pasteboard, marked
+`org.nspasteboard.ConcealedType` in case a password from the vault goes through
+it, and what was there is put back a quarter of a second later — a picture or a
+file already on the pasteboard is not put back, since there is nothing to
+restore it from. The watcher is paused for the length of it, so the history does
+not gain a copy of what was just pasted out of it.
 
 The panel takes keys and the whole thing lands within a frame, against the
 three or four Hammerspoon needed.
