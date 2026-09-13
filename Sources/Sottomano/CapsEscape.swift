@@ -1,16 +1,7 @@
 import AppKit
 
-/// Control released without anything else having been pressed is escape;
-/// control pressed together with another key is control. macOS already maps caps
-/// lock to control, so this is what makes caps lock carry both.
-///
-/// Escape cannot arrive before the release, and no implementation of a
-/// dual-role key can make it: until the key is let go it may still turn out to
-/// be a modifier.
-///
-/// The one thing here that needs an event tap, and the one thing that stops
-/// while macOS holds Secure Input — the launcher is unaffected, since its hotkey
-/// and its panel never go through a tap.
+/// The optional Control-to-Escape mappings share one event tap. They need
+/// Accessibility and stop during Secure Input; the launcher is unaffected.
 @MainActor
 final class CapsEscape {
     static let shared = CapsEscape()
@@ -18,17 +9,38 @@ final class CapsEscape {
     private var tap: CFMachPort?
     private var held = false
     private var armed = false
+    private var bracketHeld = false
+    private var capsEscape: Bool
+    private var controlBracketEscape: Bool
+
+    init(capsEscape: Bool = false, controlBracketEscape: Bool = false) {
+        self.capsEscape = capsEscape
+        self.controlBracketEscape = controlBracketEscape
+    }
 
     /// True when the tap is running and allowed to see events.
     var working: Bool { tap != nil && AXIsProcessTrusted() }
 
-    func start() {
-        let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
+    func configure(capsEscape: Bool, controlBracketEscape: Bool) {
+        if self.capsEscape != capsEscape { armed = false }
+        self.capsEscape = capsEscape
+        self.controlBracketEscape = controlBracketEscape
+
+        // Keep an existing tap so a remapped key's release is still paired with
+        // its press if the configuration changes while the key is held.
+        guard capsEscape || controlBracketEscape, tap == nil else { return }
+        start()
+    }
+
+    private func start() {
+        let mask = (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
 
         tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .listenOnly,
+            options: .defaultTap,
             eventsOfInterest: CGEventMask(mask),
             callback: { _, type, event, _ in
                 MainActor.assumeIsolated {
@@ -47,20 +59,30 @@ final class CapsEscape {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
-    private func handle(_ type: CGEventType, _ event: CGEvent) {
-        // the system switches a tap off if it ever takes too long, and a tap
-        // that is off looks exactly like a feature that stopped working
+    func handle(_ type: CGEventType, _ event: CGEvent) {
+        // The system switches a tap off if it ever takes too long.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            armed = false
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-
             return
         }
 
-        // anything pressed while control is down means it was a modifier
-        if type == .keyDown {
-            armed = false
+        if type == .keyDown { armed = false }
 
-            return
+        if (type == .keyDown || type == .keyUp),
+           event.getIntegerValueField(.keyboardEventKeycode) == 33 {
+            if type == .keyDown, controlBracketEscape, event.flags.contains(.maskControl) {
+                bracketHeld = true
+            }
+
+            if bracketHeld {
+                // Rewrite in place: no original bracket reaches the app and no
+                // posted event needs to make another trip through the tap. Pair
+                // the release even if Control was released first; repeats stay Escape.
+                event.setIntegerValueField(.keyboardEventKeycode, value: 53)
+                event.flags = []
+                if type == .keyUp { bracketHeld = false }
+            }
         }
 
         guard type == .flagsChanged else { return }
@@ -68,27 +90,20 @@ final class CapsEscape {
         let control = event.flags.contains(.maskControl)
 
         if control == held {
-            // another modifier joined control, so this is a combination too
+            // Another modifier joined Control, so this is a combination too.
             armed = false
-
             return
         }
 
         held = control
 
         if control {
-            armed = true
-
+            armed = capsEscape
             return
         }
 
-        // No timeout on purpose: how long it was held says nothing, what says
-        // everything is whether anything else was pressed while it was. A tap
-        // is a tap however slow it was.
-        if armed {
-            escape()
-        }
-
+        // No duration threshold: a tap is a tap however slow it was.
+        if armed { escape() }
         armed = false
     }
 
@@ -96,8 +111,9 @@ final class CapsEscape {
         let source = CGEventSource(stateID: .hidSystemState)
 
         for down in [true, false] {
-            CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: down)?
-                .post(tap: .cghidEventTap)
+            let event = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: down)
+            event?.flags = []
+            event?.post(tap: .cghidEventTap)
         }
     }
 }

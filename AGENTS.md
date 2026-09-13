@@ -72,12 +72,17 @@ The tree is deliberately shallow: everything reachable in two keys, one layer at
 most. The clipboard transforms lived here until they were removed for going
 unused — `git log -- Sources/Sottomano/Transform.swift` has them.
 
+`controlBracketEscape` is an independent, default-off Control+[ → Escape option.
+It shares the `CapsEscape` tap, rewriting the physical bracket key's down,
+repeat and up events to unmodified Escape. Both options reload with the keymap;
+the tap stays alive after disabling them to finish an in-flight key release.
+See [Escape mappings](README.md#escape-mappings) for configuration and limits.
+
 `capsEscape` carries what ControlEscape.spoon did: control released with nothing
 else pressed sends escape, control with another key stays control. There is no
 duration threshold, because duration says nothing — a tap is a tap however slow
-it was. It is the one part of the app that needs Accessibility and the one that
-stops under Secure Input, and it says so with a toast when the permission is
-missing.
+it was. Both mappings need Accessibility and stop under Secure Input; a toast
+reports when the permission is missing.
 
 **Development builds are signed with the Developer ID, not ad-hoc.** An ad-hoc
 signature changes with every build, so TCC treats each build as a new

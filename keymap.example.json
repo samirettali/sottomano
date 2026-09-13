@@ -1,4 +1,5 @@
 {
+  "controlBracketEscape": false,
   "hotkey": { "key": "space", "modifiers": ["command"] },
   "entries": [
     { "key": "b", "name": "browser", "url": "https://" },
