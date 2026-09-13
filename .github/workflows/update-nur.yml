@@ -1,0 +1,23 @@
+name: update NUR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      NUR_DISPATCH_TOKEN: ${{ secrets.NUR_DISPATCH_TOKEN }}
+    steps:
+      # Shared with the other package repos, with Actions read/write on NUR.
+      # Without it, NUR's daily update still picks up the release.
+      - name: Ask NUR to update the package
+        if: ${{ env.NUR_DISPATCH_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ env.NUR_DISPATCH_TOKEN }}
+        run: gh workflow run update.yml --repo samirettali/nur --field only=sottomano
