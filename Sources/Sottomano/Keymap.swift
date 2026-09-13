@@ -5,9 +5,10 @@ import Foundation
 struct Keymap: Decodable {
     /// How the panel looks and how it moves as you go deeper.
     var theme: Theme?
-    /// Control tapped on its own becomes escape. Needs Accessibility, and is
-    /// the only part of the app that does.
+    /// Control tapped on its own becomes Escape. Needs Accessibility.
     var capsEscape: Bool?
+    /// Control+[ becomes Escape on keydown. Opt-in; needs Accessibility.
+    var controlBracketEscape: Bool?
     /// Commands run when something changes rather than when a key is pressed.
     var hooks: Hooks?
 

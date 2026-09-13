@@ -11,5 +11,6 @@ let package = Package(
             name: "Sottomano",
             path: "Sources/Sottomano"
         ),
+        .testTarget(name: "SottomanoTests", dependencies: ["Sottomano"]),
     ]
 )

@@ -33,6 +33,20 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
 - **Rearrange the displays**, cycle the keyboard layout, and make caps lock send
   escape when tapped on its own while staying control when held.
 
+## Escape mappings
+
+Set `"controlBracketEscape": true` at the top level of `keymap.json` to make
+Control+[ send plain Escape immediately on keydown, including in GUI apps.
+It is off by default and independent of `capsEscape` (Control released on its
+own sends Escape). Both options reload when the configuration changes.
+
+The chord uses the physical left-bracket key (keycode 33), even on another
+keyboard layout. Additional modifiers are cleared, so the result is always
+plain Escape. Key repeats and release are remapped too.
+
+Both mappings require Accessibility permission and stop during macOS Secure
+Input. Neither limitation affects the launcher hotkey or panel.
+
 ## Install
 
 ```sh

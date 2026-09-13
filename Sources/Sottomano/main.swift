@@ -19,16 +19,6 @@ if let theme = keymap.theme {
 MenuBar.shared.start()
 Clipboard.shared.start()
 
-if keymap.capsEscape == true {
-    CapsEscape.shared.start()
-
-    // a feature that silently does nothing is worse than one that is missing,
-    // and this is the only part of the app that can lose its permission
-    if !CapsEscape.shared.working {
-        Toast.show("caps escape: no accessibility", seconds: 6)
-    }
-}
-
 if let command = keymap.hooks?.inputSourceChanged {
     InputSource.observe(command)
 }
@@ -37,6 +27,15 @@ let launcher = Launcher(keymap: keymap)
 
 @MainActor
 func bind(_ keymap: Keymap) {
+    CapsEscape.shared.configure(
+        capsEscape: keymap.capsEscape == true,
+        controlBracketEscape: keymap.controlBracketEscape == true
+    )
+    if (keymap.capsEscape == true || keymap.controlBracketEscape == true),
+       !CapsEscape.shared.working {
+        Toast.show("escape mappings: no accessibility", seconds: 6)
+    }
+
     Hotkeys.reset()
 
     guard Hotkeys.register(
