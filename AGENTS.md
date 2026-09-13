@@ -19,8 +19,12 @@ Plain SwiftPM, no Xcode project, following Pulse:
 - `run` kills the running copy first. Two instances mean two hotkey
   registrations and the second one loses.
 
-Signing, notarisation and the DMG are not set up yet. When they are, follow the
-`macos-app-release` skill rather than inventing anything here.
+`make release` signs and notarises the app and DMG locally; follow the
+`macos-app-release` skill. Publishing a GitHub release updates the Homebrew cask
+and dispatches NUR's `update.yml` with `only=sottomano`. `NUR_DISPATCH_TOKEN` is
+managed in `infra/github/secrets.tf`; without it, NUR's daily update is the fallback.
+Dotfiles already installs `nurPkgs.sottomano`; its NUR input must be updated after
+the package update PR merges.
 
 ## Why native, and what it buys
 
