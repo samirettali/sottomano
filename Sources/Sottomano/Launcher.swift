@@ -91,6 +91,9 @@ final class Launcher: NSObject, NSWindowDelegate {
         var query = ""
         var selected = 0
         var offset = 0
+        /// Which line of the table beside the list is under the cursor, once
+        /// tab has moved the cursor there. Nil while it is on the list.
+        var detail: Int?
         /// The flag is true when shift+return picked it: copy rather than run.
         let commit: (Choice, Bool) -> Void
 
@@ -282,6 +285,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                     header: Theme.current.title ? trail : nil,
                     preview: preview(of: picker),
                     details: details(of: picker),
+                    detail: picker.detail,
                     showsIcons: picker.showsIcons
                 ),
                 as: "picker",
@@ -462,11 +466,49 @@ final class Launcher: NSObject, NSWindowDelegate {
         if event.keyCode == keyReturn {
             guard current.selected < matches.count else { return }
 
-            let choice = matches[current.selected]
+            var choice = matches[current.selected]
             let commit = current.commit
+
+            // a form picked off the table is pasted in place of the row: the
+            // same verb, with the value the table line carries
+            if let line = current.detail, let details = choice.details, line < details.count {
+                choice.value = details[line].value
+            }
 
             hide()
             commit(choice, flags.contains(.shift))
+
+            return
+        }
+
+        // Tab moves the cursor onto the table beside the list, and back. Only
+        // when there is one: a tab on a row with nothing beside it does nothing,
+        // rather than typing a character the query cannot use.
+        if event.keyCode == keyTab {
+            guard current.selected < matches.count, matches[current.selected].details != nil else { return }
+
+            current.detail = current.detail == nil ? 0 : nil
+            picker = current
+            show()
+
+            return
+        }
+
+        if let line = current.detail {
+            let count = matches[current.selected].details?.count ?? 0
+
+            if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+                current.detail = min(line + 1, count - 1)
+            } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+                current.detail = max(line - 1, 0)
+            } else if event.keyCode == keyLeft {
+                current.detail = nil
+            } else {
+                return
+            }
+
+            picker = current
+            show()
 
             return
         }
@@ -1073,3 +1115,4 @@ private let keyUp: UInt16 = 126
 private let keyDown: UInt16 = 125
 private let keyLeft: UInt16 = 123
 private let keyRight: UInt16 = 124
+private let keyTab: UInt16 = 48

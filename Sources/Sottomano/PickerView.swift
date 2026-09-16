@@ -49,6 +49,9 @@ struct PickerView: View {
     /// The table the selected row stands for, in the same place a picture
     /// would go.
     var details: [Detail]?
+    /// The line of the table under the cursor, once tab has put it there. The
+    /// list's selection stays drawn, since the table is about that row.
+    var detail: Int?
     /// Whether anything in the *whole* list has something to show, not only
     /// what is on screen: worked out from the rows in view, the column and the
     /// height of a row changed as the selection moved past the ones with icons.
@@ -86,16 +89,29 @@ struct PickerView: View {
     /// first line sits on the query's, so the two columns start together.
     private func table(_ details: [Detail]) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 0) {
-            ForEach(details) { detail in
+            ForEach(Array(details.enumerated()), id: \.element.id) { index, line in
+                let isSelected = index == detail
+
                 GridRow {
-                    Text(detail.label)
-                        .foregroundStyle(Style.text.opacity(0.45))
-                    Text(detail.value)
-                        .foregroundStyle(Style.text.opacity(0.85))
-                        .textSelection(.enabled)
+                    Text(line.label)
+                        .foregroundStyle(Style.text.opacity(isSelected ? 0.6 : 0.45))
+                    Text(line.value)
+                        .foregroundStyle(Style.text.opacity(isSelected ? 1 : 0.85))
                 }
                 .font(Style.font(size: Style.size - 4))
                 .frame(height: Style.lineHeight, alignment: .leading)
+            }
+        }
+        // the same fill the list uses for its selection, drawn across the
+        // whole width of the table rather than around the two cells, with the
+        // same room around the text a row of the list has
+        .padding(.horizontal, Style.rowPadding)
+        .background(alignment: .topLeading) {
+            if let detail {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Style.selection)
+                    .frame(height: Style.lineHeight)
+                    .offset(y: CGFloat(detail) * Style.lineHeight)
             }
         }
     }
