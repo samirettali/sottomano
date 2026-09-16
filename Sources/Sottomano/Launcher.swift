@@ -91,13 +91,53 @@ final class Launcher: NSObject, NSWindowDelegate {
         var query = ""
         var selected = 0
         var offset = 0
-        /// Which line of the table beside the list is under the cursor, once
-        /// tab has moved the cursor there. Nil while it is on the list.
+        /// Which line of the table or tree beside the list is under the
+        /// cursor, once tab has moved the cursor there. Nil while it is on the
+        /// list.
         var detail: Int?
+        /// The first line of the table or tree on screen, for one taller than
+        /// the window it is given.
+        var detailOffset = 0
         /// The flag is true when shift+return picked it: copy rather than run.
         let commit: (Choice, Bool) -> Void
 
         static let rows = 8
+        /// As many lines as the list is tall, and then it scrolls: a document
+        /// of a thousand lines would otherwise reach the bottom of the
+        /// screen, and one cut short of the list left a blank under it.
+        static var asideRows: Int {
+            let list = Style.lineHeight + 10 + CGFloat(rows) * (Style.iconSize + Style.rowPadding * 2)
+
+            return Int(list / Style.lineHeight)
+        }
+
+        /// The document of the selected row written out, every line.
+        var treeRows: [JSONLine]? {
+            guard selected < matches.count else { return nil }
+
+            return matches[selected].tree?.lines()
+        }
+
+        /// The nearest line the cursor may rest on, looking the way it was
+        /// going: the brackets that close a container are passed over.
+        func settle(_ line: Int, forward: Bool) -> Int? {
+            guard let rows = treeRows else { return min(max(line, 0), asideCount - 1) }
+
+            let order = forward ? Array(line..<rows.count) : Array((0...max(line, 0)).reversed())
+
+            return order.first { $0 < rows.count && rows[$0].selectable }
+        }
+
+        /// How many lines whatever is beside the list has.
+        var asideCount: Int {
+            guard selected < matches.count else { return 0 }
+
+            return treeRows?.count ?? matches[selected].details?.count ?? 0
+        }
+
+        var hasAside: Bool {
+            selected < matches.count && (matches[selected].details != nil || matches[selected].tree != nil)
+        }
 
         var matches: [Choice] {
             choices
@@ -234,6 +274,12 @@ final class Launcher: NSObject, NSWindowDelegate {
         return matches[picker.selected].details
     }
 
+    /// The lines of the document on screen, cut to the window around the
+    /// cursor.
+    private func tree(of picker: Picker) -> [JSONLine]? {
+        picker.treeRows.map { Array($0.dropFirst(picker.detailOffset).prefix(Picker.asideRows)) }
+    }
+
     /// Redraws the list once a picture has arrived for one of its rows.
     private func refreshPicker() {
         guard picker != nil, panel.isVisible else { return }
@@ -285,7 +331,8 @@ final class Launcher: NSObject, NSWindowDelegate {
                     header: Theme.current.title ? trail : nil,
                     preview: preview(of: picker),
                     details: details(of: picker),
-                    detail: picker.detail,
+                    tree: tree(of: picker),
+                    detail: picker.detail.map { $0 - picker.detailOffset },
                     showsIcons: picker.showsIcons
                 ),
                 as: "picker",
@@ -469,10 +516,14 @@ final class Launcher: NSObject, NSWindowDelegate {
             var choice = matches[current.selected]
             let commit = current.commit
 
-            // a form picked off the table is pasted in place of the row: the
-            // same verb, with the value the table line carries
-            if let line = current.detail, let details = choice.details, line < details.count {
-                choice.value = details[line].value
+            // a line picked off the table or the tree is pasted in place of
+            // the row: the same verb, with the value the line carries
+            if let line = current.detail {
+                if let rows = current.treeRows, line < rows.count, let value = rows[line].value {
+                    choice.value = value.pasted
+                } else if let details = choice.details, line < details.count {
+                    choice.value = details[line].value
+                }
             }
 
             hide()
@@ -485,9 +536,10 @@ final class Launcher: NSObject, NSWindowDelegate {
         // when there is one: a tab on a row with nothing beside it does nothing,
         // rather than typing a character the query cannot use.
         if event.keyCode == keyTab {
-            guard current.selected < matches.count, matches[current.selected].details != nil else { return }
+            guard current.hasAside else { return }
 
-            current.detail = current.detail == nil ? 0 : nil
+            current.detail = current.detail == nil ? current.settle(0, forward: true) : nil
+            current.detailOffset = 0
             picker = current
             show()
 
@@ -495,16 +547,23 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         if let line = current.detail {
-            let count = matches[current.selected].details?.count ?? 0
-
             if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
-                current.detail = min(line + 1, count - 1)
+                current.detail = current.settle(line + 1, forward: true) ?? line
             } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
-                current.detail = max(line - 1, 0)
+                current.detail = current.settle(line - 1, forward: false) ?? line
             } else if event.keyCode == keyLeft {
                 current.detail = nil
             } else {
                 return
+            }
+
+            // the window follows the cursor, as the list's does
+            if let line = current.detail {
+                if line < current.detailOffset {
+                    current.detailOffset = line
+                } else if line >= current.detailOffset + Picker.asideRows {
+                    current.detailOffset = line - Picker.asideRows + 1
+                }
             }
 
             picker = current

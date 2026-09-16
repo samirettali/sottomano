@@ -86,13 +86,18 @@ final class Clipboard {
             // a number that is a moment is told apart here, once per row: the
             // row says when it is, and selecting it lays out every form of it
             let stamp = item.image == nil && item.file == nil ? Timestamp(item.text) : nil
+            // a document is told the same way, and only tried on text that
+            // opens like one: parsing two hundred rows of prose would be paid
+            // on every open
+            let document = item.image == nil && item.file == nil && stamp == nil
+                && Clipboard.opensDocument(item.text) ? JSONValue.parse(item.text) : nil
 
             return Choice(
                 value: item.text,
                 name: item.file.map { ($0 as NSString).lastPathComponent } ?? item.text
                     .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                     .trimmingCharacters(in: .whitespacesAndNewlines),
-                subtitle: Clipboard.ago(item.at) + " · " + (stamp?.utc ?? Clipboard.size(item)),
+                subtitle: Clipboard.ago(item.at) + " · " + (stamp?.utc ?? Clipboard.summary(document) ?? Clipboard.size(item)),
                 // With no query every score is 0, so the order is the order they
                 // are in — the newest first. No boost at all: an integer
                 // division into ten steps put whole handfuls of rows on the
@@ -102,9 +107,25 @@ final class Clipboard {
                 color: Clipboard.colour(of: item.text),
                 imageFile: picture ?? showable,
                 details: stamp?.details,
+                tree: document,
                 fileURL: item.file,
-                symbol: stamp == nil ? Clipboard.symbol(for: item) : "clock"
+                symbol: stamp != nil ? "clock" : document != nil ? "curlybraces" : Clipboard.symbol(for: item)
             )
+        }
+    }
+
+    private static func opensDocument(_ text: String) -> Bool {
+        guard let first = text.first(where: { !$0.isWhitespace }) else { return false }
+
+        return first == "{" || first == "["
+    }
+
+    /// `Object · 8 keys`, what the row says beside a document.
+    private static func summary(_ document: JSONValue?) -> String? {
+        switch document {
+        case .object(let pairs): "Object · \(pairs.count) \(pairs.count == 1 ? "key" : "keys")"
+        case .array(let items): "Array · \(items.count) \(items.count == 1 ? "item" : "items")"
+        default: nil
         }
     }
 
