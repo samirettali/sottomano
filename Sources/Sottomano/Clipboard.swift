@@ -83,13 +83,16 @@ final class Clipboard {
             // a copied file is worth seeing when it is a picture, and worth
             // wearing its own icon when it is anything else
             let showable = item.file.flatMap { NSImage(contentsOfFile: $0) != nil ? $0 : nil }
+            // a number that is a moment is told apart here, once per row: the
+            // row says when it is, and selecting it lays out every form of it
+            let stamp = item.image == nil && item.file == nil ? Timestamp(item.text) : nil
 
             return Choice(
                 value: item.text,
                 name: item.file.map { ($0 as NSString).lastPathComponent } ?? item.text
                     .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                     .trimmingCharacters(in: .whitespacesAndNewlines),
-                subtitle: Clipboard.ago(item.at) + " · " + Clipboard.size(item),
+                subtitle: Clipboard.ago(item.at) + " · " + (stamp?.utc ?? Clipboard.size(item)),
                 // With no query every score is 0, so the order is the order they
                 // are in — the newest first. No boost at all: an integer
                 // division into ten steps put whole handfuls of rows on the
@@ -98,8 +101,9 @@ final class Clipboard {
                 icon: icon(for: item),
                 color: Clipboard.colour(of: item.text),
                 imageFile: picture ?? showable,
+                details: stamp?.details,
                 fileURL: item.file,
-                symbol: Clipboard.symbol(for: item)
+                symbol: stamp == nil ? Clipboard.symbol(for: item) : "clock"
             )
         }
     }

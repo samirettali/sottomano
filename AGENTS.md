@@ -187,6 +187,16 @@ row, is what made the panel take a moment to open. Frecency is left out of it �
 a line of the clipboard is a one-off, and remembering it only filled the store
 with text that never returns.
 
+**A row that is a timestamp says when it is.** An epoch of 10, 13, 16 or 19
+digits, or an ISO 8601 date, gets a clock and the UTC date in place of the
+character count, and selecting it lays out every form of it beside the list —
+UTC, local, ISO, relative, the three epochs, weekday, ISO week, day of year —
+in the place a picture would go. The epoch has to land between 2000 and 2060:
+an Italian mobile number read as seconds is a date in the 2070s. A date
+without a zone is read as UTC, since a log line without one is a server's.
+`Timestamp` is what tells; a `Choice` carries the table as `details`, so a
+row that stands for data other than a date can use the same panel.
+
 Directories come before files and dotfiles are left out — on this machine they
 are configuration, and configuration is reached by its own means.
 
