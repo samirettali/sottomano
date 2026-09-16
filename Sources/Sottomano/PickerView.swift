@@ -12,6 +12,9 @@ struct Choice: Identifiable {
     var color: Color?
     /// A picture to show beside the list when this row is the one selected.
     var imageFile: String?
+    /// A table to show beside the list when this row is the one selected:
+    /// every form of a timestamp, for text that is data rather than words.
+    var details: [Detail]?
     /// Set when the row stands for a file that was copied, rather than for text
     /// or for pixels: pasting it should hand over the file itself.
     var fileURL: String?
@@ -43,6 +46,9 @@ struct PickerView: View {
     /// The picture the selected row stands for, shown beside the list rather
     /// than squeezed into it.
     var preview: NSImage?
+    /// The table the selected row stands for, in the same place a picture
+    /// would go.
+    var details: [Detail]?
     /// Whether anything in the *whole* list has something to show, not only
     /// what is on screen: worked out from the rows in view, the column and the
     /// height of a row changed as the selection moved past the ones with icons.
@@ -52,12 +58,14 @@ struct PickerView: View {
         HStack(alignment: .top, spacing: 0) {
             list
 
-            if let preview {
+            if preview != nil || details != nil {
                 Rectangle()
                     .fill(Style.rule)
                     .frame(width: 1)
                     .padding(.horizontal, 14)
+            }
 
+            if let preview {
                 Image(nsImage: preview)
                     .resizable()
                     .scaledToFit()
@@ -65,6 +73,29 @@ struct PickerView: View {
                     // box it is given, and centring it left a gap above that
                     // made it look like it had slipped down the panel
                     .frame(maxWidth: 320, maxHeight: 320, alignment: .top)
+            }
+
+            if let details {
+                table(details)
+            }
+        }
+    }
+
+    /// Labels down one side, values down the other, the label quieter: the
+    /// value is what was wanted, the label only says which one it is. Its
+    /// first line sits on the query's, so the two columns start together.
+    private func table(_ details: [Detail]) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 0) {
+            ForEach(details) { detail in
+                GridRow {
+                    Text(detail.label)
+                        .foregroundStyle(Style.text.opacity(0.45))
+                    Text(detail.value)
+                        .foregroundStyle(Style.text.opacity(0.85))
+                        .textSelection(.enabled)
+                }
+                .font(Style.font(size: Style.size - 4))
+                .frame(height: Style.lineHeight, alignment: .leading)
             }
         }
     }

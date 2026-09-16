@@ -222,6 +222,15 @@ final class Launcher: NSObject, NSWindowDelegate {
         return Clipboard.thumbnail(file, size: 640)
     }
 
+    /// The table the selected row stands for, if it stands for one.
+    private func details(of picker: Picker) -> [Detail]? {
+        let matches = picker.matches
+
+        guard picker.selected < matches.count else { return nil }
+
+        return matches[picker.selected].details
+    }
+
     /// Redraws the list once a picture has arrived for one of its rows.
     private func refreshPicker() {
         guard picker != nil, panel.isVisible else { return }
@@ -272,6 +281,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                     selected: picker.selected - picker.offset,
                     header: Theme.current.title ? trail : nil,
                     preview: preview(of: picker),
+                    details: details(of: picker),
                     showsIcons: picker.showsIcons
                 ),
                 as: "picker",
