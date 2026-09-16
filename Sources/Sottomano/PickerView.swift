@@ -15,6 +15,8 @@ struct Choice: Identifiable {
     /// A table to show beside the list when this row is the one selected:
     /// every form of a timestamp, for text that is data rather than words.
     var details: [Detail]?
+    /// A document to show beside the list as a tree, for text that is JSON.
+    var tree: JSONValue?
     /// Set when the row stands for a file that was copied, rather than for text
     /// or for pixels: pasting it should hand over the file itself.
     var fileURL: String?
@@ -49,8 +51,12 @@ struct PickerView: View {
     /// The table the selected row stands for, in the same place a picture
     /// would go.
     var details: [Detail]?
-    /// The line of the table under the cursor, once tab has put it there. The
-    /// list's selection stays drawn, since the table is about that row.
+    /// The lines of the document beside the list that are on screen, already
+    /// windowed by the launcher.
+    var tree: [JSONLine]?
+    /// The line of the table or the tree under the cursor, once tab has put
+    /// it there, counted from the first line on screen. The list's selection
+    /// stays drawn, since what is beside it is about that row.
     var detail: Int?
     /// Whether anything in the *whole* list has something to show, not only
     /// what is on screen: worked out from the rows in view, the column and the
@@ -61,7 +67,7 @@ struct PickerView: View {
         HStack(alignment: .top, spacing: 0) {
             list
 
-            if preview != nil || details != nil {
+            if preview != nil || details != nil || tree != nil {
                 Rectangle()
                     .fill(Style.rule)
                     .frame(width: 1)
@@ -80,6 +86,46 @@ struct PickerView: View {
 
             if let details {
                 table(details)
+            }
+
+            if let tree {
+                self.tree(tree)
+            }
+        }
+    }
+
+    /// The document written out, a line each, the keys quieter than the
+    /// values: the value is what was wanted, the key only says which.
+    private func tree(_ lines: [JSONLine]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                let isSelected = index == detail
+
+                HStack(spacing: 0) {
+                    Text(String(repeating: "  ", count: line.depth))
+
+                    if let key = line.key {
+                        Text(key + ": ")
+                            .foregroundStyle(Style.text.opacity(isSelected ? 0.6 : 0.45))
+                    }
+
+                    Text(line.text)
+                        .foregroundStyle(Style.text.opacity(line.selectable ? (isSelected ? 1 : 0.85) : 0.45))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .font(Style.font(size: Style.size - 4))
+                .frame(height: Style.lineHeight, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: 520, alignment: .leading)
+        .padding(.horizontal, Style.rowPadding)
+        .background(alignment: .topLeading) {
+            if let detail {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Style.selection)
+                    .frame(height: Style.lineHeight)
+                    .offset(y: CGFloat(detail) * Style.lineHeight)
             }
         }
     }

@@ -199,6 +199,19 @@ it and shift+return copies it: the verbs the row already has, with another
 value. `Timestamp` is what tells; a `Choice` carries the table as `details`,
 so a row that stands for data other than a date can use the same panel.
 
+**A row that is a document is shown written out.** Text opening with `{` or
+`[` is read by `JSONValue.parse`, which takes strict JSON and what the Mongo
+shell prints — bare keys, single quotes, trailing commas, `ObjectId('…')`
+around a value — with one reader, since the strict form is a subset of the
+loose one. Keys keep their order and numbers their spelling: the document is
+looked at, not computed with. It is pretty-printed beside the list, every
+node open: a folding tree was tried first and opened on one collapsed line,
+which said nothing. Tab puts the cursor on the first key, the cursor passes
+over the root and the closing brackets — the row itself pastes the whole —
+and return pastes the line: a string bare, a container written out again.
+Sixteen lines and it scrolls; a thousand-line document would otherwise
+reach the bottom of the screen.
+
 Directories come before files and dotfiles are left out — on this machine they
 are configuration, and configuration is reached by its own means.
 
