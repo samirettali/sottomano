@@ -26,8 +26,8 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
   standing, return goes in, delete comes back out.
 - **A clipboard history** that keeps text, pictures and files, skips whatever a
   password manager marks as concealed, and pastes a file back as a file. A
-  timestamp — an epoch or an ISO 8601 date — says when it is, and selecting it
-  shows every form of it.
+  timestamp — an epoch or an ISO 8601 date — says when it is, selecting it
+  shows every form of it, and tab picks one to paste.
 - **Ask for a query** and open it in whichever search engine, or search
   whatever is selected without being asked.
 - **Take a colour off the screen** with the loupe, and get the hex back on the

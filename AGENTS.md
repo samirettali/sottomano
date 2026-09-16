@@ -194,8 +194,10 @@ UTC, local, ISO, relative, the three epochs, weekday, ISO week, day of year —
 in the place a picture would go. The epoch has to land between 2000 and 2060:
 an Italian mobile number read as seconds is a date in the 2070s. A date
 without a zone is read as UTC, since a log line without one is a server's.
-`Timestamp` is what tells; a `Choice` carries the table as `details`, so a
-row that stands for data other than a date can use the same panel.
+Tab moves the cursor onto the table and back, return pastes the form under
+it and shift+return copies it: the verbs the row already has, with another
+value. `Timestamp` is what tells; a `Choice` carries the table as `details`,
+so a row that stands for data other than a date can use the same panel.
 
 Directories come before files and dotfiles are left out — on this machine they
 are configuration, and configuration is reached by its own means.
