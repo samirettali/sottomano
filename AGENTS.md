@@ -230,8 +230,23 @@ node open: a folding tree was tried first and opened on one collapsed line,
 which said nothing. Tab puts the cursor on the first key, the cursor passes
 over the root and the closing brackets — the row itself pastes the whole —
 and return pastes the line: a string bare, a container written out again.
-Sixteen lines and it scrolls; a thousand-line document would otherwise
-reach the bottom of the screen.
+As many lines as the list is tall, and it scrolls; a thousand-line document
+would otherwise reach the bottom of the screen.
+
+**Tokens, hex and base64 are read the same way**, in `Tokens.swift`, and
+`Clipboard.read` tells them apart in the order of how sure each test is:
+timestamp, document, JWT, hex, base64. A JWT — `ey`, three segments, a
+header with `alg` — is shown as one document of header and payload, with
+the algorithm and the expiry on the row; it is read, not verified, since
+there is no key to verify it with. Hex is `0x` and an even run of digits,
+or a bare run of sixteen or more, and gets the byte count, the decimal up
+to 256 bits, the UTF-8 when it is text, and a `hexdump -C` of the bytes.
+Base64 runs last because it is the loosest: four or more characters of
+the alphabet that decode to readable UTF-8, and a number is never base64.
+What it decodes to is shown, as a document when it is one.
+
+**cmd+1…8 picks a row by its place on screen**, and the rows say so at the
+right edge, faint. Only the picker: the browser's rows walk into folders.
 
 Directories come before files and dotfiles are left out — on this machine they
 are configuration, and configuration is reached by its own means.
