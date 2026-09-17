@@ -101,6 +101,12 @@ struct Pick: Decodable {
     /// the field without the launcher ever holding it. Alongside `run` it
     /// becomes the second verb of the same row: return runs, shift+return types.
     var typeOutput: [String]?
+    /// Runs the command and puts its output on the pasteboard, marked as
+    /// concealed so that no clipboard history keeps it. Shift+return.
+    var copyOutput: [String]?
+    /// What `typeOutput` answers is a secret: it goes to the field as key
+    /// events, twenty characters at a time, and the pasteboard never sees it.
+    var secret: Bool?
     /// Alternative to `run`: type the value, or put it on the pasteboard.
     var type: Bool?
     var copy: Bool?

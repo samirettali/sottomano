@@ -82,6 +82,27 @@ repeat and up events to unmodified Escape. Both options reload with the keymap;
 the tap stays alive after disabling them to finish an in-flight key release.
 See [Escape mappings](README.md#escape-mappings) for configuration and limits.
 
+**A secret never goes through the pasteboard.** A pick with `secret` types
+what `typeOutput` answers as key events carrying the characters — twenty per
+event, which the system caps, so a password is two or three events landing
+whole rather than one per character. `copyOutput` is the other verb of the
+same row, shift+return: the output goes on the pasteboard marked concealed,
+so the history here and any other manager let it pass. Neither `pbcopy` nor
+the browser extensions write that marker: `pbconceal` in dotfiles does for
+the shell, and Chromium's `org.chromium.source-url` — a `chrome-extension://`
+page for an extension — is matched against the ids of the known managers
+for the browser. A row that got in anyway leaves with ⌘⌫.
+
+**The history is sealed at rest.** `clipboard.enc` is the JSON run through
+AES-GCM with a key the keychain holds, made once by the signed app, so the
+file on its own says nothing and the key never sits beside it. Pictures and
+thumbnails are not sealed: what leaks is text. Writes are atomic, since a
+crash halfway through would leave a file that no longer opens.
+
+The text lent to the pasteboard by a paste is put back only if the change
+count is still the one the loan had: a copy made in the meantime has already
+taken the loan off, and writing the old text over it would lose the copy.
+
 `capsEscape` carries what ControlEscape.spoon did: control released with nothing
 else pressed sends escape, control with another key stays control. There is no
 duration threshold, because duration says nothing — a tap is a tap however slow

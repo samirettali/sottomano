@@ -24,8 +24,10 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
   — and only the rows on screen are fetched.
 - **Walk the filesystem** from the keyboard: the query filters where you are
   standing, return goes in, delete comes back out.
-- **A clipboard history** that keeps text, pictures and files, skips whatever a
-  password manager marks as concealed, and pastes a file back as a file. A
+- **A clipboard history** that keeps text, pictures and files, sealed on disk
+  with a key in the keychain. It skips whatever a password manager marks as
+  concealed, and copies made by the browser extension of one, and pastes a
+  file back as a file. ⌘⌫ removes a row. A
   timestamp — an epoch or an ISO 8601 date — says when it is, selecting it
   shows every form of it, and tab picks one to paste. A JSON document, Mongo
   shell output included, is pretty-printed, and tab picks a value to paste.

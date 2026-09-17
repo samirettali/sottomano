@@ -100,6 +100,12 @@ final class Launcher: NSObject, NSWindowDelegate {
         var detailOffset = 0
         /// The flag is true when shift+return picked it: copy rather than run.
         let commit: (Choice, Bool) -> Void
+        /// Takes the row out of the list behind it, for a list that has one —
+        /// the clipboard. Nil where a row is not the launcher's to remove.
+        var remove: ((Choice) -> [Choice])?
+        /// What return and shift+return do here, written under the list as
+        /// bindings, the way a layer writes its own.
+        var legend: [(key: String, name: String)]?
 
         static let rows = 8
         /// As many lines as the list is tall, and then it scrolls: a document
@@ -333,6 +339,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                     details: details(of: picker),
                     tree: tree(of: picker),
                     detail: picker.detail.map { $0 - picker.detailOffset },
+                    legend: picker.legend,
                     showsIcons: picker.showsIcons
                 ),
                 as: "picker",
@@ -576,6 +583,12 @@ final class Launcher: NSObject, NSWindowDelegate {
             current.selected += 1
         } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
             current.selected -= 1
+        } else if event.keyCode == keyDelete, flags.contains(.command), let remove = current.remove {
+            // the row goes and the cursor stays where it was, so the next
+            // one moves up under it
+            guard current.selected < matches.count else { return }
+
+            current.choices = remove(matches[current.selected])
         } else if event.keyCode == keyDelete {
             _ = current.query.popLast()
             current.selected = 0
@@ -927,12 +940,20 @@ final class Launcher: NSObject, NSWindowDelegate {
             // command, shift+return types what it answers. It is what the vault
             // wants — copy the password, or put it straight in the field — and
             // it saves the same picker from being listed twice under two keys.
+            if alternate, let command = pick.copyOutput {
+                let text = self.output(of: command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
+
+                self.conceal(text.trimmingCharacters(in: .whitespacesAndNewlines))
+
+                return
+            }
+
             if alternate, let command = pick.typeOutput, pick.run != nil {
                 let text = self.output(of: command.map {
                     $0.replacingOccurrences(of: "{}", with: choice.value)
                 })
 
-                self.paste(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.deliver(text.trimmingCharacters(in: .whitespacesAndNewlines), secret: pick.secret == true)
 
                 return
             }
@@ -976,21 +997,70 @@ final class Launcher: NSObject, NSWindowDelegate {
                 return
             }
 
-            if let command = pick.typeOutput {
-                let text = self.output(of: command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
-
-                self.paste(text.trimmingCharacters(in: .whitespacesAndNewlines))
+            // run before typeOutput: with both on a row, return is the
+            // command and shift+return the typing, and looking at typeOutput
+            // first made both keys type
+            if let command = pick.run {
+                self.spawn(command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
 
                 return
             }
 
-            if let command = pick.run {
-                self.spawn(command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
+            if let command = pick.typeOutput {
+                let text = self.output(of: command.map { $0.replacingOccurrences(of: "{}", with: choice.value) })
+
+                self.deliver(text.trimmingCharacters(in: .whitespacesAndNewlines), secret: pick.secret == true)
             }
         }
 
+        if pick.source == "clipboard" {
+            picker?.remove = { choice in
+                Clipboard.shared.remove(choice)
+
+                return Clipboard.shared.choices()
+            }
+        }
+
+        picker?.legend = Launcher.legend(of: pick)
+
         show()
         refreshCache(pick)
+    }
+
+    /// `return paste   shift+return copy`: the two verbs of the row, worked out the way the
+    /// commit above works them out, so the line under the list cannot say
+    /// one thing and the keys do another.
+    private static func legend(of pick: Pick) -> [(key: String, name: String)] {
+        let plain: String
+        let shifted: String
+
+        if pick.copy == true {
+            plain = "copy"
+        } else if pick.type == true || (pick.typeOutput != nil && pick.run == nil) {
+            plain = "paste"
+        } else if let run = pick.run, run.first?.hasSuffix("/open") == true {
+            plain = "open"
+        } else if pick.run != nil {
+            plain = "run"
+        } else {
+            plain = "paste"
+        }
+
+        if pick.copyOutput != nil {
+            shifted = "copy"
+        } else if pick.typeOutput != nil, pick.run != nil {
+            shifted = "paste"
+        } else {
+            shifted = "copy"
+        }
+
+        var bindings = [("return", plain), ("shift+return", shifted)]
+
+        if pick.source == "clipboard" {
+            bindings.append(("cmd+delete", "remove"))
+        }
+
+        return bindings
     }
 
     /// The list as it was left on disk, so a panel backed by the network opens
@@ -1100,6 +1170,8 @@ final class Launcher: NSObject, NSWindowDelegate {
             board.setString("", forType: .init("org.nspasteboard.ConcealedType"))
         }
 
+        let lent = board.changeCount
+
         if let previous, previous != .current {
             previous.activate()
         }
@@ -1118,13 +1190,66 @@ final class Launcher: NSObject, NSWindowDelegate {
             // Putting it back any sooner takes the text out from under the
             // paste that is still being served.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                defer { Clipboard.shared.resume() }
+
+                // a copy made in the meantime has already taken the lent text
+                // off the pasteboard, and putting the old one back over it
+                // would lose the copy
+                guard board.changeCount == lent else { return }
+
                 board.clearContents()
 
                 if let saved {
                     board.setString(saved, forType: .string)
                 }
+            }
+        }
+    }
 
-                Clipboard.shared.resume()
+    /// A secret goes as key events and everything else through the
+    /// pasteboard: the events are one per twenty characters, which is fine
+    /// for a password and a visible age for a paragraph.
+    private func deliver(_ text: String, secret: Bool) {
+        if secret {
+            type(text)
+        } else {
+            paste(text)
+        }
+    }
+
+    /// Puts a secret on the pasteboard to be pasted by hand, marked concealed
+    /// so that the history here and any other manager watching let it pass.
+    private func conceal(_ text: String) {
+        let board = NSPasteboard.general
+
+        board.clearContents()
+        board.setString(text, forType: .string)
+        board.setString("", forType: .init("org.nspasteboard.ConcealedType"))
+    }
+
+    /// Types the text as key events carrying the characters themselves, so
+    /// the pasteboard never holds it. An event carries twenty characters at
+    /// most — the system drops the rest — so the text goes in slices, each
+    /// one landing whole. What the vault answers is short enough for this to
+    /// be two or three events, not one per character.
+    private func type(_ text: String) {
+        if let previous, previous != .current {
+            previous.activate()
+        }
+
+        let units = Array(text.utf16)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let source = CGEventSource(stateID: .hidSystemState)
+
+            for start in stride(from: 0, to: units.count, by: 20) {
+                var slice = Array(units[start..<min(start + 20, units.count)])
+
+                for down in [true, false] {
+                    let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
+                    event?.keyboardSetUnicodeString(stringLength: slice.count, unicodeString: &slice)
+                    event?.post(tap: .cghidEventTap)
+                }
             }
         }
     }

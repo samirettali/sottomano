@@ -58,6 +58,9 @@ struct PickerView: View {
     /// it there, counted from the first line on screen. The list's selection
     /// stays drawn, since what is beside it is about that row.
     var detail: Int?
+    /// What the keys do here, on one line under the list: the key at full
+    /// light and the verb quieter, which is how a layer writes its own.
+    var legend: [(key: String, name: String)]?
     /// Whether anything in the *whole* list has something to show, not only
     /// what is on screen: worked out from the rows in view, the column and the
     /// height of a row changed as the selection moved past the ones with icons.
@@ -188,6 +191,31 @@ struct PickerView: View {
 
             ForEach(Array(matches.enumerated()), id: \.element.id) { index, choice in
                 row(choice, isSelected: index == selected)
+            }
+
+            if let legend {
+                Rectangle()
+                    .fill(Style.rule)
+                    .frame(height: 1)
+                    .padding(.top, 10)
+
+                // one line: the key at full light and the verb quieter, so
+                // the pairs read as pairs and not as a sentence
+                HStack(spacing: 22) {
+                    ForEach(legend, id: \.key) { binding in
+                        HStack(spacing: 7) {
+                            Text(binding.key).foregroundStyle(Style.text.opacity(0.8))
+                            Text(binding.name).foregroundStyle(Style.muted.opacity(0.45))
+                        }
+                    }
+                }
+                .font(Style.font(size: Style.size - 4))
+                .padding(.top, 14)
+                // the panel's own padding is below it, and it is more than
+                // the gap to the rule above: the legend is pulled down into
+                // it so that it sits at the same distance from both
+                .padding(.bottom, 14 - Style.padding)
+                .frame(maxWidth: .infinity)
             }
         }
         .frame(width: PickerView.listWidth, alignment: .leading)
