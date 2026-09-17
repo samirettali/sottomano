@@ -250,6 +250,20 @@ Base64 runs last because it is the loosest: four or more characters of
 the alphabet that decode to readable UTF-8, and a number is never base64.
 What it decodes to is shown, as a document when it is one.
 
+**An id, an address and a schedule are read too**, in `Readers.swift`, before
+hex would take them: twenty bytes with `0x` are an EVM address written back
+with its EIP-55 checksum, thirty-two a hash, both with a Routescan link since
+it indexes every chain rather than presuming mainnet — `Keccak` is written
+out because CryptoKit's SHA-3 is the other padding. Twenty-four hex digits
+are a Mongo ObjectId and say when the document was written. A UUID says its
+version, and v1 and v7 the moment they were made. Five cron fields are read
+for the next five times they fire, walked minute by minute for a year; the
+paraphrase was not written, the dates say more.
+
+**cmd+return opens a row, or the line under the cursor, when it is an
+address**: the third verb after paste and copy, and the one key for both the
+list and the table — a letter on its own would filter the list.
+
 **cmd+1…8 picks a row by its place on screen**, and the rows say so at the
 right edge, faint. Only the picker: the browser's rows walk into folders.
 

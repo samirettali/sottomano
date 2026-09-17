@@ -531,6 +531,31 @@ final class Launcher: NSObject, NSWindowDelegate {
             return
         }
 
+        // cmd+return opens what the row, or the line under the cursor, is
+        // when it is an address: the third verb, after paste and copy
+        if event.keyCode == keyReturn, flags.contains(.command) {
+            guard current.selected < matches.count else { return }
+
+            var value = matches[current.selected].value
+
+            if let line = current.detail {
+                if let rows = current.treeRows, line < rows.count, let node = rows[line].value {
+                    value = node.pasted
+                } else if let details = matches[current.selected].details, line < details.count {
+                    value = details[line].value
+                }
+            }
+
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://"), let url = URL(string: trimmed) else { return }
+
+            hide()
+            NSWorkspace.shared.open(url)
+
+            return
+        }
+
         if event.keyCode == keyReturn {
             guard current.selected < matches.count else { return }
 
@@ -1071,6 +1096,7 @@ final class Launcher: NSObject, NSWindowDelegate {
         var bindings = [("return", plain), ("shift+return", shifted)]
 
         if pick.source == "clipboard" {
+            bindings.append(("cmd+return", "open"))
             bindings.append(("cmd+delete", "remove"))
         }
 
