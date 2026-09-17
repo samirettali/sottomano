@@ -176,8 +176,13 @@ existed was this panel with different knobs, so the knobs are what is configured
   search, then what acts and is done.
 - `top`, `size`, `padding`, `radius`, `borderWidth`, `animation` (seconds, zero
   turns every animation off).
-- `background` — a colour, or `glass` for the material macOS draws behind a
-  window. Then `border`, `text`, `muted`, `rule`, `selection`, as `#rgb`,
+- `background` — a colour, `glass` for the frosted material macOS draws
+  behind a window, or `liquid` for the glass of macOS 26, which refracts
+  rather than frosts and falls back to `glass` below 26. `glass` is darkened
+  by a fixed 45% so white text reads on it; `liquid` is left as it is, since
+  darkening it takes away the refraction that is the reason to use it, and
+  `veil` (0 to 1, default 0) is the black to lay over it for a light
+  wallpaper. Then `border`, `text`, `muted`, `rule`, `selection`, as `#rgb`,
   `#rrggbb` or `#rrggbbaa`.
 
 **One row is drawn in one place.** `RowView` serves both the list and the
