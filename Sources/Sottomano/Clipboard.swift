@@ -116,19 +116,13 @@ final class Clipboard {
             let showable = item.file.flatMap { NSImage(contentsOfFile: $0) != nil ? $0 : nil }
             // a number that is a moment is told apart here, once per row: the
             // row says when it is, and selecting it lays out every form of it
-            let stamp = item.image == nil && item.file == nil ? Timestamp(item.text) : nil
-            // a document is told the same way, and only tried on text that
-            // opens like one: parsing two hundred rows of prose would be paid
-            // on every open
-            let document = item.image == nil && item.file == nil && stamp == nil
-                && Clipboard.opensDocument(item.text) ? JSONValue.parse(item.text) : nil
-
+            let kind = item.image == nil && item.file == nil ? Clipboard.read(item.text) : nil
             return Choice(
                 value: item.text,
                 name: item.file.map { ($0 as NSString).lastPathComponent } ?? item.text
                     .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                     .trimmingCharacters(in: .whitespacesAndNewlines),
-                subtitle: Clipboard.ago(item.at) + " · " + (stamp?.utc ?? Clipboard.summary(document) ?? Clipboard.size(item)),
+                subtitle: Clipboard.ago(item.at) + " · " + (kind?.summary ?? Clipboard.size(item)),
                 // With no query every score is 0, so the order is the order they
                 // are in — the newest first. No boost at all: an integer
                 // division into ten steps put whole handfuls of rows on the
@@ -137,27 +131,66 @@ final class Clipboard {
                 icon: icon(for: item),
                 color: Clipboard.colour(of: item.text),
                 imageFile: picture ?? showable,
-                details: stamp?.details,
-                tree: document,
+                details: kind?.details,
+                tree: kind?.tree,
                 fileURL: item.file,
-                symbol: stamp != nil ? "clock" : document != nil ? "curlybraces" : Clipboard.symbol(for: item)
+                symbol: kind?.symbol ?? Clipboard.symbol(for: item)
             )
         }
     }
 
-    private static func opensDocument(_ text: String) -> Bool {
-        guard let first = text.first(where: { !$0.isWhitespace }) else { return false }
-
-        return first == "{" || first == "["
+    /// What a row of text is, when it is data rather than words: what the
+    /// row says beside it, the icon it wears, and what goes beside the list.
+    struct Kind {
+        var summary: String
+        var symbol: String
+        var details: [Detail]?
+        var tree: JSONValue?
     }
 
-    /// `Object · 8 keys`, what the row says beside a document.
-    private static func summary(_ document: JSONValue?) -> String? {
-        switch document {
-        case .object(let pairs): "Object · \(pairs.count) \(pairs.count == 1 ? "key" : "keys")"
-        case .array(let items): "Array · \(items.count) \(items.count == 1 ? "item" : "items")"
-        default: nil
+    /// Told once per row, in the order of how sure each test is: a timestamp
+    /// and a document are unmistakable, a token nearly so, hex needs a
+    /// length, and base64 is anything long enough in the right alphabet, so
+    /// it goes last.
+    private static func read(_ text: String) -> Kind? {
+        if let stamp = Timestamp(text) {
+            return Kind(summary: stamp.utc, symbol: "clock", details: stamp.details)
         }
+
+        if let first = text.first(where: { !$0.isWhitespace }), first == "{" || first == "[",
+           let document = JSONValue.parse(text) {
+            let summary = switch document {
+            case .object(let pairs): "Object · \(pairs.count) \(pairs.count == 1 ? "key" : "keys")"
+            case .array(let items): "Array · \(items.count) \(items.count == 1 ? "item" : "items")"
+            default: ""
+            }
+
+            return Kind(summary: summary, symbol: "curlybraces", tree: document)
+        }
+
+        if let token = JWT(text) {
+            return Kind(summary: token.summary, symbol: "key", tree: token.document)
+        }
+
+        if let hex = Hex(text) {
+            return Kind(summary: "Hex · " + hex.summary, symbol: "number", details: hex.details)
+        }
+
+        if let decoded = Base64.text(of: text) {
+            // what was encoded is often a document, and then it is one
+            if let first = decoded.first(where: { !$0.isWhitespace }), first == "{" || first == "[",
+               let document = JSONValue.parse(decoded) {
+                return Kind(summary: "Base64 · JSON", symbol: "arrow.left.arrow.right", tree: document)
+            }
+
+            return Kind(
+                summary: "Base64 · \(decoded.count) chars",
+                symbol: "arrow.left.arrow.right",
+                details: [Detail("Decoded", decoded)]
+            )
+        }
+
+        return nil
     }
 
     /// What a row of text looks like at a glance: an address, a colour, several
