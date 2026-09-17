@@ -165,11 +165,9 @@ struct Timestamp {
 
 /// One line of the table shown beside a row that stands for data rather than
 /// for a picture: a label and what it is worth.
-struct Detail: Identifiable {
+struct Detail {
     let label: String
     let value: String
-
-    var id: String { label }
 
     init(_ label: String, _ value: String) {
         self.label = label

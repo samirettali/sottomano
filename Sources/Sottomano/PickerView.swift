@@ -140,7 +140,7 @@ struct PickerView: View {
     /// first line sits on the query's, so the two columns start together.
     private func table(_ details: [Detail]) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 0) {
-            ForEach(Array(details.enumerated()), id: \.element.id) { index, line in
+            ForEach(Array(details.enumerated()), id: \.offset) { index, line in
                 let isSelected = index == detail
 
                 GridRow {

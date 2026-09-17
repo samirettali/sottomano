@@ -172,6 +172,23 @@ final class Clipboard {
             return Kind(summary: token.summary, symbol: "key", tree: token.document)
         }
 
+        // the sized ones before the bare run of hex, which would take them
+        if let evm = EVM(text) {
+            return Kind(summary: evm.summary, symbol: "hexagon", details: evm.details)
+        }
+
+        if let id = ObjectId(text) {
+            return Kind(summary: id.summary, symbol: "leaf", details: id.details)
+        }
+
+        if let uuid = UUIDReader(text) {
+            return Kind(summary: uuid.summary, symbol: "number", details: uuid.details)
+        }
+
+        if let cron = Cron(text) {
+            return Kind(summary: cron.summary, symbol: "calendar", details: cron.details)
+        }
+
         if let hex = Hex(text) {
             return Kind(summary: "Hex · " + hex.summary, symbol: "number", details: hex.details)
         }
