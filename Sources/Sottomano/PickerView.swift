@@ -61,6 +61,8 @@ struct PickerView: View {
     /// What the keys do here, on one line under the list: the key at full
     /// light and the verb quieter, which is how a layer writes its own.
     var legend: [(key: String, name: String)]?
+    /// Whether cmd+digit picks a row here, and so whether the rows say so.
+    var numbered = false
     /// Whether anything in the *whole* list has something to show, not only
     /// what is on screen: worked out from the rows in view, the column and the
     /// height of a row changed as the selection moved past the ones with icons.
@@ -190,7 +192,7 @@ struct PickerView: View {
             }
 
             ForEach(Array(matches.enumerated()), id: \.element.id) { index, choice in
-                row(choice, isSelected: index == selected)
+                row(choice, isSelected: index == selected, place: index + 1)
             }
 
             if let legend {
@@ -229,7 +231,7 @@ struct PickerView: View {
         (showsIcons ? Style.iconSize : Style.lineHeight) + Style.rowPadding * 2
     }
 
-    private func row(_ choice: Choice, isSelected: Bool) -> some View {
+    private func row(_ choice: Choice, isSelected: Bool, place: Int) -> some View {
         HStack(spacing: 10) {
             if showsIcons {
                 icon(choice).frame(width: Style.iconSize, height: Style.iconSize)
@@ -238,6 +240,14 @@ struct PickerView: View {
             content(choice, isSelected: isSelected)
 
             Spacer(minLength: 0)
+
+            // the key that picks this row without walking to it, faint
+            // enough to be found when looked for and not before
+            if numbered, place <= 8 {
+                Text("⌘\(place)")
+                    .font(Style.font(size: Style.size - 6))
+                    .foregroundStyle(Style.text.opacity(isSelected ? 0.35 : 0.2))
+            }
 
             if choice.isDirectory {
                 Text("›")

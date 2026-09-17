@@ -340,6 +340,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                     tree: tree(of: picker),
                     detail: picker.detail.map { $0 - picker.detailOffset },
                     legend: picker.legend,
+                    numbered: true,
                     showsIcons: picker.showsIcons
                 ),
                 as: "picker",
@@ -516,6 +517,19 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         let flags = event.modifierFlags
         let matches = current.matches
+
+        // cmd+1…8 is the row by its place on screen, so the fourth one down
+        // is one key rather than three arrows and a return
+        if flags.contains(.command), let typed = event.charactersIgnoringModifiers, let digit = Int(typed),
+           (1...Picker.rows).contains(digit), current.offset + digit - 1 < matches.count {
+            let choice = matches[current.offset + digit - 1]
+            let commit = current.commit
+
+            hide()
+            commit(choice, flags.contains(.shift))
+
+            return
+        }
 
         if event.keyCode == keyReturn {
             guard current.selected < matches.count else { return }
