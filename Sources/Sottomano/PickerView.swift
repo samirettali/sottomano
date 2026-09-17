@@ -60,7 +60,7 @@ struct PickerView: View {
     var detail: Int?
     /// What the keys do here, on one line under the list: the key at full
     /// light and the verb quieter, which is how a layer writes its own.
-    var legend: [(key: String, name: String)]?
+    var legend: [(key: String, name: String, enabled: Bool)]?
     /// Whether cmd+digit picks a row here, and so whether the rows say so.
     var numbered = false
     /// Whether anything in the *whole* list has something to show, not only
@@ -169,6 +169,45 @@ struct PickerView: View {
 
     private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
+            rows
+                .frame(width: PickerView.listWidth, alignment: .leading)
+
+            // Outside the fixed width: never wrapped, and the panel widens
+            // to hold it when a theme's size asks for more than the list.
+            if let legend {
+                Rectangle()
+                    .fill(Style.rule)
+                    .frame(height: 1)
+                    .padding(.top, 10)
+
+                // one line: the key at full light and the verb quieter, so
+                // the pairs read as pairs and not as a sentence
+                HStack(spacing: 18) {
+                    ForEach(legend, id: \.key) { binding in
+                        HStack(spacing: 6) {
+                            // a key that does nothing here is as quiet as its verb
+                            Text(binding.key).foregroundStyle(binding.enabled ? Style.text.opacity(0.8) : Style.muted.opacity(0.45))
+                            Text(binding.name).foregroundStyle(Style.muted.opacity(0.45))
+                        }
+                    }
+                }
+                .font(Style.font(size: Style.size - 4))
+                .padding(.top, 14)
+                // the panel's own padding is below it, and it is more than
+                // the gap to the rule above: the legend is pulled down into
+                // it so that it sits at the same distance from both
+                .padding(.bottom, 14 - Style.padding)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        // Its own width and not the panel's: the legend asks for all the
+        // width there is to centre itself, and beside a wide table that was
+        // the whole panel, which the list then filled.
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
             if let header {
                 Text(header)
                     .font(Style.font(size: Style.size - 5))
@@ -194,35 +233,8 @@ struct PickerView: View {
             ForEach(Array(matches.enumerated()), id: \.element.id) { index, choice in
                 row(choice, isSelected: index == selected, place: index + 1)
             }
-
-            if let legend {
-                Rectangle()
-                    .fill(Style.rule)
-                    .frame(height: 1)
-                    .padding(.top, 10)
-
-                // one line: the key at full light and the verb quieter, so
-                // the pairs read as pairs and not as a sentence
-                HStack(spacing: 22) {
-                    ForEach(legend, id: \.key) { binding in
-                        HStack(spacing: 7) {
-                            Text(binding.key).foregroundStyle(Style.text.opacity(0.8))
-                            Text(binding.name).foregroundStyle(Style.muted.opacity(0.45))
-                        }
-                    }
-                }
-                .font(Style.font(size: Style.size - 4))
-                .padding(.top, 14)
-                // the panel's own padding is below it, and it is more than
-                // the gap to the rule above: the legend is pulled down into
-                // it so that it sits at the same distance from both
-                .padding(.bottom, 14 - Style.padding)
-                .frame(maxWidth: .infinity)
-            }
         }
-        .frame(width: PickerView.listWidth, alignment: .leading)
     }
-
 
     /// The same for every row of a list, whatever a row happens to carry. One
     /// with a subtitle and one without were different heights, so the rows
