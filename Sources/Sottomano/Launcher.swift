@@ -548,10 +548,29 @@ final class Launcher: NSObject, NSWindowDelegate {
 
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            guard trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://"), let url = URL(string: trimmed) else { return }
+            if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://"), let url = URL(string: trimmed) {
+                hide()
+                NSWorkspace.shared.open(url)
+
+                return
+            }
+
+            // a path that is on this disk: a folder opens, a file is shown in
+            // its folder — the same as the browser's shift+return
+            let path = matches[current.selected].fileURL ?? (trimmed as NSString).expandingTildeInPath
+            var isDirectory: ObjCBool = false
+
+            guard (trimmed.hasPrefix("/") || trimmed.hasPrefix("~") || matches[current.selected].fileURL != nil),
+                  FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+            else { return }
 
             hide()
-            NSWorkspace.shared.open(url)
+
+            if isDirectory.boolValue {
+                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+            } else {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            }
 
             return
         }
