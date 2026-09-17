@@ -32,7 +32,9 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
   shows every form of it, and tab picks one to paste. A JSON document, Mongo
   shell output included, is pretty-printed, and tab picks a value to paste.
   A JWT opens to its header and payload, hex to a dump of its bytes, base64
-  to what it encodes. ⌘1…8 picks a row by its place.
+  to what it encodes; an EVM address gets its checksum and an explorer link,
+  a Mongo ObjectId and a UUID the moment they were made, a cron line its
+  next runs. ⌘1…8 picks a row by its place.
 - **Ask for a query** and open it in whichever search engine, or search
   whatever is selected without being asked.
 - **Take a colour off the screen** with the loupe, and get the hex back on the
