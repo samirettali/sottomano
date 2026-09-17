@@ -219,6 +219,12 @@ final class Clipboard {
 
         if colour(of: trimmed) != nil { return nil }
         if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") { return "link" }
+        // the disk is asked only for text that looks like a path, and one
+        // that is there wears a folder so that cmd+return is known to work
+        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~"), !trimmed.contains("\n"),
+           FileManager.default.fileExists(atPath: (trimmed as NSString).expandingTildeInPath) {
+            return "folder"
+        }
         if trimmed.contains("\n") { return "text.alignleft" }
 
         return "textformat"

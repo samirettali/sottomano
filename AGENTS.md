@@ -261,8 +261,11 @@ for the next five times they fire, walked minute by minute for a year; the
 paraphrase was not written, the dates say more.
 
 **cmd+return opens a row, or the line under the cursor, when it is an
-address**: the third verb after paste and copy, and the one key for both the
-list and the table — a letter on its own would filter the list.
+address or a path on this disk**: the third verb after paste and copy, and
+the one key for both the list and the table — a letter on its own would
+filter the list. A folder opens, a file is shown in its folder, and a row
+that is a path found on the disk wears a folder icon so the key is known to
+work; the disk is asked only for text starting with `/` or `~`.
 
 **cmd+1…8 picks a row by its place on screen**, and the rows say so at the
 right edge, faint. Only the picker: the browser's rows walk into folders.
