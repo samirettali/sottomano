@@ -521,11 +521,27 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
     }
 
+    /// The key, with the vim and emacs spellings folded onto the arrows:
+    /// control with h, j, k, l and n, p are left, down, up, right, down and
+    /// up, so a hand on the home row never has to leave it.
+    private static func motion(_ event: NSEvent) -> UInt16 {
+        guard event.modifierFlags.contains(.control) else { return event.keyCode }
+
+        switch event.charactersIgnoringModifiers {
+        case "h": return keyLeft
+        case "j", "n": return keyDown
+        case "k", "p": return keyUp
+        case "l": return keyRight
+        default: return event.keyCode
+        }
+    }
+
     private func handlePicker(_ event: NSEvent) {
         guard var current = picker else { return }
 
         let flags = event.modifierFlags
         let matches = current.matches
+        let code = Launcher.motion(event)
 
         // cmd+1…8 is the row by its place on screen, so the fourth one down
         // is one key rather than three arrows and a return
@@ -582,10 +598,11 @@ final class Launcher: NSObject, NSWindowDelegate {
             return
         }
 
-        // Tab moves the cursor onto the table beside the list, and back. Only
-        // when there is one: a tab on a row with nothing beside it does nothing,
-        // rather than typing a character the query cannot use.
-        if event.keyCode == keyTab {
+        // Tab moves the cursor onto the table beside the list, and back — as
+        // does control+l going in and control+h coming back. Only when there
+        // is one: a tab on a row with nothing beside it does nothing, rather
+        // than typing a character the query cannot use.
+        if code == keyTab || (code == keyRight && current.detail == nil) {
             guard current.hasAside else { return }
 
             current.detail = current.detail == nil ? current.settle(0, forward: true) : nil
@@ -597,11 +614,11 @@ final class Launcher: NSObject, NSWindowDelegate {
         }
 
         if let line = current.detail {
-            if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+            if code == keyDown {
                 current.detail = current.settle(line + 1, forward: true) ?? line
-            } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+            } else if code == keyUp {
                 current.detail = current.settle(line - 1, forward: false) ?? line
-            } else if event.keyCode == keyLeft {
+            } else if code == keyLeft {
                 current.detail = nil
             } else {
                 return
@@ -622,9 +639,9 @@ final class Launcher: NSObject, NSWindowDelegate {
             return
         }
 
-        if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+        if code == keyDown {
             current.selected += 1
-        } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+        } else if code == keyUp {
             current.selected -= 1
         } else if event.keyCode == keyDelete, flags.contains(.command), let remove = current.remove {
             // the row goes and the cursor stays where it was, so the next
@@ -667,10 +684,11 @@ final class Launcher: NSObject, NSWindowDelegate {
         guard var current = browser else { return }
 
         let flags = event.modifierFlags
+        let code = Launcher.motion(event)
         let matches = current.matches
         let chosen = current.selected < matches.count ? matches[current.selected] : nil
 
-        if event.keyCode == keyReturn || event.keyCode == keyRight {
+        if event.keyCode == keyReturn || code == keyRight {
             guard let chosen else { return }
 
             Frecency.shared.remember(chosen.value)
@@ -686,7 +704,7 @@ final class Launcher: NSObject, NSWindowDelegate {
                 return
             }
 
-            if chosen.isDirectory, event.keyCode == keyReturn || event.keyCode == keyRight {
+            if chosen.isDirectory, event.keyCode == keyReturn || code == keyRight {
                 browser = enter(url)
                 show()
 
@@ -699,7 +717,7 @@ final class Launcher: NSObject, NSWindowDelegate {
             return
         }
 
-        if event.keyCode == keyDelete || event.keyCode == keyLeft {
+        if event.keyCode == keyDelete || code == keyLeft {
             if !current.query.isEmpty, event.keyCode == keyDelete {
                 _ = current.query.popLast()
                 current.selected = 0
@@ -713,9 +731,9 @@ final class Launcher: NSObject, NSWindowDelegate {
 
                 return
             }
-        } else if event.keyCode == keyDown || (flags.contains(.control) && event.charactersIgnoringModifiers == "n") {
+        } else if code == keyDown {
             current.selected += 1
-        } else if event.keyCode == keyUp || (flags.contains(.control) && event.charactersIgnoringModifiers == "p") {
+        } else if code == keyUp {
             current.selected -= 1
         } else if flags.contains(.control), event.charactersIgnoringModifiers == "u" {
             current.query = ""

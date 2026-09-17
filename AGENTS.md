@@ -267,6 +267,12 @@ filter the list. A folder opens, a file is shown in its folder, and a row
 that is a path found on the disk wears a folder icon so the key is known to
 work; the disk is asked only for text starting with `/` or `~`.
 
+**Control with h, j, k, l are the arrows**, and n, p are down and up, in
+the picker and the browser alike: `Launcher.motion` folds them onto the
+arrow key codes before anything reads the key, so there is one path per
+motion. Control+l goes onto the table beside the list as tab does, and
+control+h comes back as ← does.
+
 **cmd+1…8 picks a row by its place on screen**, and the rows say so at the
 right edge, faint. Only the picker: the browser's rows walk into folders.
 

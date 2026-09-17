@@ -23,7 +23,8 @@ sequence rather than a shortcut to remember: `⌘space o` for the applications,
   manager. A list can name a picture for each row — a playlist cover, a favicon
   — and only the rows on screen are fetched.
 - **Walk the filesystem** from the keyboard: the query filters where you are
-  standing, return goes in, delete comes back out.
+  standing, return goes in, delete comes back out. Control with h, j, k, l
+  are the arrows everywhere a list is.
 - **A clipboard history** that keeps text, pictures and files, sealed on disk
   with a key in the keychain. It skips whatever a password manager marks as
   concealed, and copies made by the browser extension of one, and pastes a
