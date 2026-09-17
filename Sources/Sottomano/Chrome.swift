@@ -42,11 +42,33 @@ struct Chrome: ViewModifier {
 
 private struct Background: View {
     var body: some View {
-        if Theme.current.isGlass {
+        if Theme.current.isLiquid, #available(macOS 26, *) {
+            LiquidGlass(radius: Style.radius).overlay(Color.black.opacity(Theme.current.veil))
+        } else if Theme.current.isGlass || Theme.current.isLiquid {
             Vibrancy(material: .hudWindow).overlay(Color.black.opacity(0.45))
         } else {
             Style.background
         }
+    }
+}
+
+/// The glass macOS 26 draws: it refracts what is behind it rather than
+/// frosting it, and it is lit from the edge. Below 26 it does not exist, and
+/// `liquid` falls back to the frosted glass.
+@available(macOS 26, *)
+struct LiquidGlass: NSViewRepresentable {
+    let radius: CGFloat
+
+    func makeNSView(context: Context) -> NSGlassEffectView {
+        let view = NSGlassEffectView()
+        view.style = .regular
+        view.cornerRadius = radius
+
+        return view
+    }
+
+    func updateNSView(_ view: NSGlassEffectView, context: Context) {
+        view.cornerRadius = radius
     }
 }
 

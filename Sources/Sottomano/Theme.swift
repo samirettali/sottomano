@@ -58,9 +58,13 @@ struct Theme: Decodable {
     /// Seconds. Zero turns every animation off.
     var animation: Double = 0.13
 
-    /// A colour, or "glass" for the frosted material macOS draws behind a
-    /// window. Anything else is #rgb, #rrggbb or #rrggbbaa.
+    /// A colour, "glass" for the frosted material macOS draws behind a
+    /// window, or "liquid" for the glass of macOS 26, which refracts rather
+    /// than frosts. Anything else is #rgb, #rrggbb or #rrggbbaa.
     var background = "#000000"
+    /// A black veil over the glass, 0 to 1, for a light wallpaper that the
+    /// white text cannot be read against. Zero leaves the glass as it is.
+    var veil: Double = 0
     var border = "#ffffff66"
     var text = "#ffffff"
     /// Names that are not the point: a leaf action, a column left behind.
@@ -71,13 +75,14 @@ struct Theme: Decodable {
     nonisolated(unsafe) static var current = Theme()
 
     var isGlass: Bool { background == "glass" }
+    var isLiquid: Bool { background == "liquid" }
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case shape, flow, key, arrow, title, group, top
         case font, size, iconSize, padding, radius, borderWidth, animation
-        case background, border, text, muted, rule, selection
+        case background, veil, border, text, muted, rule, selection
     }
 
     /// Every option is optional: an option added to the app must not break a
@@ -109,6 +114,7 @@ struct Theme: Decodable {
         take(.borderWidth, \.borderWidth)
         take(.animation, \.animation)
         take(.background, \.background)
+        take(.veil, \.veil)
         take(.border, \.border)
         take(.text, \.text)
         take(.muted, \.muted)
