@@ -22,6 +22,10 @@ struct Node: Identifiable {
 
     /// Leads somewhere rather than finishing.
     var continues: Bool { kind != .action }
+    /// An action that starts an application, which the grouping keeps apart
+    /// from the ones that do something: a row of apps reads as a dock, and
+    /// the loupe and the layout toggle are not that.
+    var launches = false
     /// What running it would produce, for the theme that shows outcomes rather
     /// than names.
     var preview: Preview = .none
@@ -57,6 +61,7 @@ struct LauncherView: View {
                 name: name,
                 children: entry.entries.map(LauncherView.tree(of:)),
                 kind: LauncherView.kind(of: entry),
+                launches: entry.launch != nil,
                 preview: LauncherView.preview(of: entry)
             )
         }
@@ -193,15 +198,23 @@ struct RowView: View {
     }
 }
 
-/// Layers first, then what opens a search, then what acts and is done — or the
-/// order they were written in, when the theme says not to group.
+/// Layers first, then what opens a search, then the applications, then what
+/// acts and is done — or the order they were written in, when the theme says
+/// not to group.
 func blocks(of rows: [Node]) -> [[Node]] {
     guard Theme.current.group else { return [rows] }
 
+    let groups: [(Node) -> Bool] = [
+        { $0.kind == .layer },
+        { $0.kind == .search },
+        { $0.kind == .action && $0.launches },
+        { $0.kind == .action && !$0.launches },
+    ]
+
     // alphabetical inside each block: the key is the initial of its own word,
     // so ordering by key is ordering by name, and a row keeps its seat
-    return [Node.Kind.layer, .search, .action]
-        .map { kind in rows.filter { $0.kind == kind }.sorted { $0.key < $1.key } }
+    return groups
+        .map { belongs in rows.filter(belongs).sorted { $0.key < $1.key } }
         .filter { !$0.isEmpty }
 }
 
