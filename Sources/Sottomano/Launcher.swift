@@ -339,7 +339,16 @@ final class Launcher: NSObject, NSWindowDelegate {
                     details: details(of: picker),
                     tree: tree(of: picker),
                     detail: picker.detail.map { $0 - picker.detailOffset },
-                    legend: picker.legend,
+                    legend: picker.legend?.map { binding in
+                        // a key that would do nothing on this row is greyed
+                        // like the verb, so the legend says what is on offer
+                        // here and not everywhere
+                        let opens = binding.name == "open"
+                        let focused = Launcher.focused(picker)
+                        let enabled = !opens || focused.flatMap { Launcher.openable($0.value, file: $0.file) } != nil
+
+                        return (key: binding.key, name: binding.name, enabled: enabled)
+                    },
                     numbered: true,
                     showsIcons: picker.showsIcons
                 ),
@@ -536,40 +545,16 @@ final class Launcher: NSObject, NSWindowDelegate {
         if event.keyCode == keyReturn, flags.contains(.command) {
             guard current.selected < matches.count else { return }
 
-            var value = matches[current.selected].value
-
-            if let line = current.detail {
-                if let rows = current.treeRows, line < rows.count, let node = rows[line].value {
-                    value = node.pasted
-                } else if let details = matches[current.selected].details, line < details.count {
-                    value = details[line].value
-                }
-            }
-
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://"), let url = URL(string: trimmed) {
-                hide()
-                NSWorkspace.shared.open(url)
-
-                return
-            }
-
-            // a path that is on this disk: a folder opens, a file is shown in
-            // its folder — the same as the browser's shift+return
-            let path = matches[current.selected].fileURL ?? (trimmed as NSString).expandingTildeInPath
-            var isDirectory: ObjCBool = false
-
-            guard (trimmed.hasPrefix("/") || trimmed.hasPrefix("~") || matches[current.selected].fileURL != nil),
-                  FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+            guard let focused = Launcher.focused(current),
+                  let target = Launcher.openable(focused.value, file: focused.file)
             else { return }
 
             hide()
 
-            if isDirectory.boolValue {
-                NSWorkspace.shared.open(URL(fileURLWithPath: path))
-            } else {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            switch target {
+            case .url(let url): NSWorkspace.shared.open(url)
+            case .folder(let url): NSWorkspace.shared.open(url)
+            case .file(let url): NSWorkspace.shared.activateFileViewerSelecting([url])
             }
 
             return
@@ -1083,6 +1068,55 @@ final class Launcher: NSObject, NSWindowDelegate {
 
         show()
         refreshCache(pick)
+    }
+
+    private enum Openable {
+        case url(URL)
+        case folder(URL)
+        case file(URL)
+    }
+
+    /// What cmd+return would open for a value: an address, or a path that is
+    /// on this disk — a folder opens, a file is shown in its folder, the
+    /// browser's shift+return. Nil when there is nothing to open, which is
+    /// what greys the key out in the legend.
+    private static func openable(_ value: String, file: String?) -> Openable? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://"), let url = URL(string: trimmed) {
+            return .url(url)
+        }
+
+        guard file != nil || trimmed.hasPrefix("/") || trimmed.hasPrefix("~") else { return nil }
+
+        let path = file ?? (trimmed as NSString).expandingTildeInPath
+        var isDirectory: ObjCBool = false
+
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return nil }
+
+        return isDirectory.boolValue ? .folder(URL(fileURLWithPath: path)) : .file(URL(fileURLWithPath: path))
+    }
+
+    /// The value cmd+return and the legend look at: the line under the
+    /// cursor when there is one, the row otherwise.
+    private static func focused(_ picker: Picker) -> (value: String, file: String?)? {
+        let matches = picker.matches
+
+        guard picker.selected < matches.count else { return nil }
+
+        let choice = matches[picker.selected]
+
+        if let line = picker.detail {
+            if let rows = picker.treeRows, line < rows.count, let node = rows[line].value {
+                return (node.pasted, nil)
+            }
+
+            if let details = choice.details, line < details.count {
+                return (details[line].value, nil)
+            }
+        }
+
+        return (choice.value, choice.fileURL)
     }
 
     /// `return paste   shift+return copy`: the two verbs of the row, worked out the way the
